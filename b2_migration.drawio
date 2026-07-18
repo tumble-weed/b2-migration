@@ -1,0 +1,244 @@
+<mxfile host="localhost" modified="2026-07-17T18:16:52.203Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36" etag="cFWRLMqcPxIZb6YjycnQ" version="9.6.4">
+  <diagram id="202fe9c222bb4f5f8197" name="design">
+    <mxGraphModel dx="1262" dy="1723" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="2" target="4" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="2" value="we can currently design around b2" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="370" y="80" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="3" value="backup to object storage" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="342.5" width="165" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="4" target="5" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="4" value="this seems to be a new service, any risks associated with it?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="600" y="80" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="5" value="will it suddenly be unavailable? has it shown to be robust ( no data loss) are there SLAs?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="830" y="70" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="8" target="9" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="8" target="11" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="330"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="8" target="13" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="8" value="we currently back up from a vast instance to google drive upto 1 TB" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="365" y="180" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="but a large amount of data already on gdrive" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="570" y="300" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="9" value="this is slow, throttled by api call quota ( even though we use our own client not rclone's shared client" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="600" y="165" width="145" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="13" target="15" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="13" target="17" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="13" value="if we move to b2, we dont want to send all data from scratch to b2" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="360" y="450" width="121" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="15" value="the vast has expensive bandwidth, 30 $/tb" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="566" y="450" width="121" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="17" target="19" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="17" value="one possible solution:" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="360" y="600" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="19" target="21" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="19" value="1. start a cheap second vm to run rclone from gdrive to b2" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="560" y="600" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0.5;entryY=0;jettySize=auto;orthogonalLoop=1;" parent="1" source="21" target="23" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="21" value="2. send only files not on gdrive from **this** vast instance to b2" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="790" y="600" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="23" target="26" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="23" value="&quot;not on gdrive&quot; tricky part. we want to run the 2 copys in parallel" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="790" y="710" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="26" value="observation: i tried deleting files equivalent to say 1/10th of the storage, it took 7 days .. so doing the 2 sequentially might be too long" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1080" y="690" width="230" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="25" value="address my concerns&amp;nbsp;" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="120" y="390" width="120" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-1" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;B2 risk — low (checked)&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;Not new:&lt;/b&gt; ~decade old (since 2015). Backblaze is public (BLZE), publishes &quot;Drive Stats&quot;.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Durability: 11 nines&lt;/b&gt; (99.999999999%). File split into 20 shards, rebuilt from any 17 → survives 3 drive losses.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Uptime SLA: 99.9%&lt;/b&gt;, no cold delays.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Caveat:&lt;/b&gt; single region by default. Regional outage = &lt;i&gt;temp unavailable&lt;/i&gt;, NOT data loss. Multi-region = opt-in Cloud Replication (extra $).&lt;/li&gt;&lt;li&gt;&lt;b&gt;No lock-in:&lt;/b&gt; S3-compatible → rclone out to any provider anytime.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Verdict: safe as a results store. Keep the gdrive copy until b2 is verified.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1120" y="-80" width="340" height="275" as="geometry"/>
+        </mxCell>
+        <mxCell id="29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-2" target="28" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-2" target="30" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-2" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Why so slow — and it bites b2 too&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;gdrive throttle is &lt;b&gt;per-REQUEST&lt;/b&gt; (API calls), &lt;i&gt;not&lt;/i&gt; per-byte. Many small files = death.&lt;/li&gt;&lt;li&gt;Same trap on b2: Class A/B &lt;b&gt;ops&lt;/b&gt; + per-file overhead cost you.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Fix: bundle.&lt;/b&gt; &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;tar&lt;/font&gt; each experiment dir → a few big blobs. Fewer ops → faster everywhere + cheaper b2.&lt;/li&gt;&lt;/ul&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="775" y="265" width="285" height="173" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-3" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Your 2-stream split is right — parallel is SAFE&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;The two sets are &lt;b&gt;disjoint by design&lt;/b&gt;:&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;  VM1 = everything &lt;b&gt;on&lt;/b&gt; gdrive · vast = everything &lt;b&gt;not&lt;/b&gt; on gdrive. No overlap → no dedup race.&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;Bonus: different &lt;b&gt;bottlenecks&lt;/b&gt;, so they don't self-contend:&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;  - VM1 gdrive→b2 = &lt;b&gt;gdrive-API-bound&lt;/b&gt; (throttled)&lt;/div&gt;&lt;div&gt;  - vast→b2 = &lt;b&gt;bandwidth-bound&lt;/b&gt; ($30/TB)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="330" y="700" width="340" height="156" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-4" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;&quot;not on gdrive&quot; — cheap to compute (metadata only)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;div style=&quot;background-color:#F8F8F8;font-family:Courier New,monospace;font-size:11px;padding:4px;text-align:left;&quot;&gt;&lt;div&gt;rclone&amp;nbsp;lsf&amp;nbsp;-R&amp;nbsp;gdrive:&amp;nbsp;&amp;gt;&amp;nbsp;gdrive.txt&amp;nbsp;&amp;nbsp;&amp;nbsp;#&amp;nbsp;names&amp;nbsp;only,&amp;nbsp;0&amp;nbsp;bytes&lt;/div&gt;&lt;div&gt;rclone&amp;nbsp;lsf&amp;nbsp;-R&amp;nbsp;/local&amp;nbsp;&amp;nbsp;&amp;gt;&amp;nbsp;local.txt&lt;/div&gt;&lt;div&gt;comm&amp;nbsp;-23&amp;nbsp;local.txt&amp;nbsp;gdrive.txt&amp;nbsp;&amp;gt;&amp;nbsp;delta.txt&lt;/div&gt;&lt;div&gt;rclone&amp;nbsp;copy&amp;nbsp;/local&amp;nbsp;b2:&amp;nbsp;--files-from&amp;nbsp;delta.txt&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;Listing = API calls but &lt;b&gt;no bandwidth&lt;/b&gt; → cheap on vast.&lt;/li&gt;&lt;li&gt;&lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;delta.txt&lt;/font&gt; guarantees vast never re-sends what gdrive already holds.&lt;/li&gt;&lt;/ul&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="700" y="820" width="380" height="207" as="geometry"/>
+        </mxCell>
+        <mxCell id="33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-5" target="32" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="35" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-5" target="34" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-5" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;The 7-day problem → gdrive API is the wall&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;VM1's gdrive→b2 &lt;b&gt;read&lt;/b&gt; shares the SAME per-user gdrive quota as your removal job → they fight, both crawl.&lt;/li&gt;&lt;li&gt;So don't run VM1-read &lt;i&gt;while&lt;/i&gt; the removal job runs.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Decision (open):&lt;/b&gt; where do you dedup?&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;(a)&lt;/b&gt; finish gdrive dedup first, THEN VM1 gdrive→b2. But 1/10 = 7d → full ≈ weeks.&lt;/li&gt;&lt;li&gt;&lt;b&gt;(b)&lt;/b&gt; copy gdrive→b2 as-is, &lt;b&gt;dedup ON b2&lt;/b&gt; — no gdrive throttle, cheaper ops. Likely much faster.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Root cause is likely file COUNT → bundle first (see left).&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1110" y="810" width="350" height="258" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="5" target="claude-1" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="9" target="claude-2" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="17" target="claude-3" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="23" target="claude-4" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="26" target="claude-5" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="28" value="but i want the unzipped folder to be there on b2, not the tar ... is this natively supported in any way ( tar folder to send and keep it untarred on b2, or if its sdk allows for such tar-send-untar operation)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1210" y="270" width="230" height="99" as="geometry"/>
+        </mxCell>
+        <mxCell id="30" value="worst case, it is per file: in that case limits still better than gdrive?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1270" y="420" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="32" value="this was just an obs. on previous timelines. i will not be running anything else to gdrive while our backup is happening" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1560" y="890" width="190" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="34" value="so opt b: sequential copy? 1st gdrive -&amp;gt; b2 then vast -&amp;gt; b2?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1215" y="1140" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-11" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;No native tar-send-untar&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Object storage (b2/S3) has &lt;b&gt;no server-side untar&lt;/b&gt;. No provider does it; rclone can't either. It's send-as-is.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Pick granularity:&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;per-file&lt;/b&gt; → browsable on b2, but many ops (cost is small — see below)&lt;/li&gt;&lt;li&gt;&lt;b&gt;per-experiment tar&lt;/b&gt; → 1 object/dir; fetch+untar that dir when you read it. Good middle ground.&lt;/li&gt;&lt;li&gt;&lt;b&gt;one big tar&lt;/b&gt; → cheapest, all-or-nothing.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Want folders browsable as-is? → upload per-file.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1530" y="40" width="340" height="241" as="geometry"/>
+        </mxCell>
+        <mxCell id="37" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-12" target="36" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.25;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-12" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1980" y="340" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="claude-12" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Yes — per-file on b2 is fine&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;b2 has &lt;b&gt;no hard per-user throttle&lt;/b&gt; like gdrive. You just &lt;i&gt;pay&lt;/i&gt; per op.&lt;/li&gt;&lt;li&gt;Class A (writes) = &lt;b&gt;$4.50 / MILLION files&lt;/b&gt;. 1M = $4.50 one-time · 10M = $45. Bounded + tiny.&lt;/li&gt;&lt;li&gt;vs gdrive: per-user quota throttles you to a crawl (your 7 days), un-raisable.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;So per-file = modest $, &lt;b&gt;not a wall&lt;/b&gt;. Bundling is an optimization, not required.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1560" y="410" width="330" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-13" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Good — kills the contention&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;Then VM1's gdrive→b2 read gets the &lt;b&gt;full&lt;/b&gt; per-user quota (nothing else fighting it).&lt;/li&gt;&lt;li&gt;Should beat the 7-day pace — that pace &lt;i&gt;was&lt;/i&gt; the removal job itself.&lt;/li&gt;&lt;li&gt;Implies you're not deduping gdrive-side → dedup lands &lt;b&gt;on b2&lt;/b&gt; by default.&lt;/li&gt;&lt;/ul&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1770" y="865" width="320" height="139" as="geometry"/>
+        </mxCell>
+        <mxCell id="39" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-14" target="38" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-14" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;No — still PARALLEL&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Dedup-on-b2 = &lt;i&gt;where&lt;/i&gt; dedup happens; independent of parallel vs sequential. Run both at once:&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;VM1:&lt;/b&gt; both gdrive homes → b2  (gdrive-API-bound)&lt;/li&gt;&lt;li&gt;&lt;b&gt;vast:&lt;/b&gt; only &quot;not-on-gdrive&quot; delta → b2  (bandwidth-bound)&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Different bottlenecks + disjoint files → no contention → parallel is faster.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Then &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;rclone dedupe b2:&lt;/font&gt; — only the &lt;b&gt;gdrive-sourced&lt;/b&gt; dupes need it; the vast delta is already unique.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="1360" y="1130" width="370" height="224" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="28" target="claude-11" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="30" target="claude-12" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="32" target="claude-13" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="34" target="claude-14" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="36" value="so suppose i want to restore from b2 (i am moving vast instance), then this cost happens again in downloading?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="2010" y="457.5" width="180" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="38" value="&quot;both&quot; gdrive homes?where did 2nd gdrive come from?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1830" y="1160" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-19" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Restore cost = vast bandwidth, not b2&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;b2 egress:&lt;/b&gt; FREE up to &lt;b&gt;3× stored size / month&lt;/b&gt;, then $0.01/GB (1TB = $10). Often $0.&lt;/li&gt;&lt;li&gt;&lt;b&gt;b2 read ops:&lt;/b&gt; $0.36 / million. Trivial.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Real cost = the NEW vast box's bandwidth&lt;/b&gt; ($30/TB &lt;i&gt;ingress&lt;/i&gt;) — same trap as upload, reversed.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;So b2 side ≈ free; pulling INTO vast is the expensive leg.&lt;/div&gt;&lt;div&gt;Mitigate: restore to a cheap-bandwidth box, or pull only what you need (b2 is browsable, not all-or-nothing).&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" parent="1" vertex="1">
+          <mxGeometry x="2240" y="398" width="350" height="224" as="geometry"/>
+        </mxCell>
+        <mxCell id="43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-20" target="42" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-20" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;The 2 homes = your dedup premise&lt;/b&gt;&lt;/div&gt;&lt;div&gt;It's the whole reason for this exercise: results currently live in &lt;b&gt;2 gdrive locations&lt;/b&gt; — the duplication you're deduping (folder A + folder B, from the A→B move).&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;A→B consolidation &lt;b&gt;finishes first&lt;/b&gt; → just &lt;b&gt;1 home&lt;/b&gt; → VM1 copies one, b2 &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;dedupe&lt;/font&gt; step unneeded.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Not&lt;/b&gt; finished → 2 homes → dedupe on b2 cleans it.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;So &quot;both&quot; depends on state at migration time. &lt;b&gt;Which is it — is A→B done?&lt;/b&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" parent="1" vertex="1">
+          <mxGeometry x="1980" y="1150" width="360" height="207" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="36" target="claude-19" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="38" target="claude-20" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="41" value="4.5$ per million transfers in a month or total file transfer in lifetime?" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1950" y="281" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="42" value="dont mixup dedup with this. 2 efforts 1: accidentally copied files to 2 locations on gdrive, have to consolidate 2. move from gdrive to b2 for backup ( this current chat's focus)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="2430" y="1173.5" width="430" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="45" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0;entryY=0.5;jettySize=auto;orthogonalLoop=1;" parent="1" source="claude-23" target="44" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-23" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Per-op, tallied monthly — NOT lifetime, NOT recurring&lt;/b&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;Each upload = 1 Class A op. Billed on the &lt;b&gt;count of ops in that billing month&lt;/b&gt;.&lt;/li&gt;&lt;li&gt;One-time migration of N files → &lt;b&gt;one-time&lt;/b&gt; $4.50 × (N/1M). Next month, no uploads → $0 ops.&lt;/li&gt;&lt;li&gt;Storage is the separate ongoing charge ($6/TB/mo). Ops ≠ storage.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;E.g. upload 3M files once → &lt;b&gt;$13.50 that month&lt;/b&gt;, then $0.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" parent="1" vertex="1">
+          <mxGeometry x="2200" y="166.5" width="330" height="207" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-24" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Got it — 2 separate efforts. Re-scoping to #2&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;#1 Consolidate&lt;/b&gt; (dupes across 2 gdrive spots) — gdrive-side, separate. NOT this chat.&lt;/div&gt;&lt;div&gt;&lt;b&gt;#2 gdrive → b2 backup&lt;/b&gt; — THIS chat.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Correcting my earlier note (claude-14): for #2, treat gdrive as &lt;b&gt;one source&lt;/b&gt;:&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;VM1: gdrive → b2  (the consolidated tree)&lt;/li&gt;&lt;li&gt;vast: only local files &lt;b&gt;not on gdrive&lt;/b&gt; → b2&lt;/li&gt;&lt;li&gt;&lt;b&gt;Drop the &quot;b2 dedupe&quot; step&lt;/b&gt; — that was #1 bleeding into #2.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Coupling: if #1 isn't finished when #2 reads gdrive, b2 mirrors whatever's there (dupes included). Finish #1 first for a clean b2.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" parent="1" vertex="1">
+          <mxGeometry x="2445" y="1420" width="400" height="275" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-25" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="41" target="claude-23" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="42" target="claude-24" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-27" value="&lt;div&gt;corrects&lt;/div&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#D6B656;" parent="1" source="claude-24" target="claude-14" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="44" value="this means we have to enumerate the number of files once to see how many we have, to anticipate the cost" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="2645" y="210" width="190" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-28" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Yes — and one listing pass gives it (no extra work)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;div style=&quot;background-color:#F8F8F8;font-family:Courier New,monospace;font-size:11px;padding:4px;text-align:left;&quot;&gt;&lt;div&gt;rclone&amp;nbsp;size&amp;nbsp;gdrive:&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;#&amp;nbsp;total&amp;nbsp;objects&amp;nbsp;+&amp;nbsp;bytes&lt;/div&gt;&lt;div&gt;#&amp;nbsp;or:&amp;nbsp;rclone&amp;nbsp;lsf&amp;nbsp;-R&amp;nbsp;gdrive:&amp;nbsp;|&amp;nbsp;wc&amp;nbsp;-l&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;You need this listing &lt;b&gt;anyway&lt;/b&gt; for the &quot;not-on-gdrive&quot; delta → free.&lt;/li&gt;&lt;li&gt;Rough op cost: files × $4.50/M.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;⚠ Caveat: large files upload &lt;b&gt;multipart&lt;/b&gt; — each chunk = 1 Class A op. A 10GB file @ 100MB chunks ≈ &lt;b&gt;100 ops&lt;/b&gt;, not 1. So file-count is a &lt;i&gt;floor&lt;/i&gt;; add ~Σ ceil(size/chunk) for big files.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" parent="1" vertex="1">
+          <mxGeometry x="2880" y="190" width="370" height="241" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" parent="1" source="44" target="claude-28" edge="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="46" value="so while creating the file list we need to make it into a form that allows for both&amp;nbsp; doing the not-on-gdrive as well as estimate cost ( i.e capture per file size as well )" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3180" y="100" width="180" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude-30" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#FFF2CC;strokeColor=#D6B656;" value="&lt;div style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Yes — grab path + size in one &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;lsf&lt;/font&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;div style=&quot;background-color:#F8F8F8;font-family:Courier New,monospace;font-size:11px;padding:4px;text-align:left;&quot;&gt;&lt;div&gt;rclone&amp;nbsp;lsf&amp;nbsp;-R&amp;nbsp;--files-only&amp;nbsp;\&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;--format&amp;nbsp;&quot;ps&quot;&amp;nbsp;--separator&amp;nbsp;$'\t'&amp;nbsp;\&lt;/div&gt;&lt;div&gt;&amp;nbsp;&amp;nbsp;gdrive:&amp;nbsp;&amp;gt;&amp;nbsp;gdrive.tsv&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;#&amp;nbsp;path&amp;nbsp;&amp;lt;TAB&amp;gt;&amp;nbsp;size&lt;/div&gt;&lt;div&gt;#&amp;nbsp;same&amp;nbsp;for&amp;nbsp;/local&amp;nbsp;&amp;gt;&amp;nbsp;local.tsv&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div&gt;Split roles from the SAME file:&lt;/div&gt;&lt;ul style=&quot;margin:0;padding-left:18px;&quot;&gt;&lt;li&gt;&lt;b&gt;delta:&lt;/b&gt; &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;comm -23 &amp;lt;(cut -f1 local.tsv|sort) &amp;lt;(cut -f1 gdrive.tsv|sort) &amp;gt; delta.txt&lt;/font&gt;&lt;/li&gt;&lt;li&gt;&lt;b&gt;cost:&lt;/b&gt; from the size column → count + Σ ceil(size/chunk) for multipart.&lt;/li&gt;&lt;li&gt;feed &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;delta.txt&lt;/font&gt; (paths only) to &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;rclone copy --files-from&lt;/font&gt;.&lt;/li&gt;&lt;/ul&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Optional: &lt;font face=&quot;Courier New&quot; style=&quot;background-color:#F0F0F0;&quot;&gt;--format &quot;psh&quot;&lt;/font&gt; adds hashes if you later want content-level checks.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="309" width="400" x="3410" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="claude-31" edge="1" parent="1" source="46" target="claude-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;endFill=0;strokeColor=#D6B656;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
