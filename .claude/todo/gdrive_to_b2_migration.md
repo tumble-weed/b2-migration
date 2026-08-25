@@ -1,6 +1,8 @@
 # gdrive → Backblaze B2 migration (one-time backup)
 
 **Design canvas:** `coding-practice/b2-migration/b2_migration.drawio`
+**De-risk test:** `.claude/todo/b2_derisk_test.html` — the small paid experiment
+that has to pass before this migration runs. Read it first.
 **Status:** design converged; not yet executed.
 
 ## Scope (important)
@@ -64,17 +66,24 @@ is billed ($0.004/10k, first 2,500/day free).
   (4.05M round trips, rclone crawl), not a cost problem. Do not tar for cost.
 - Storage ($6.95/TB/mo) is the only ongoing charge.
 
-### Concrete bill for the 618 GB corpus
+### Concrete bill (census figures, 2026-08-25)
+`find -printf '%s'` census over results-torchray: 4,054,466 files, 586.9 GB.
+The older 618 GB figure was `du --apparent-size`; trust the census.
 ```
-billable = 618 - 10 free = 608 GB
-608 GB x $0.00695 = $4.23 / mo  =  $50.71 / yr
-+18% GST          = $4.99 / mo  =  $59.84 / yr
+results-torchray ............ 586.9 GB
+results-with-detailed-info ... 16.0 GB   (the 211 symlinks point here)
+                             ---------
+                              602.9 GB
 
-upload 618 GB (B2 side) ..... $0
+billable = 602.9 - 10 free = 592.9 GB
+592.9 GB x $0.00695 = $4.12 / mo  =  $49.46 / yr
++18% GST            = $4.86 / mo  =  $58.36 / yr
+
+upload 602.9 GB (B2 side) ... $0
 4.05M upload ops ............ $0
-free egress budget .......... 1,854 GB/mo   (3x stored)
+free egress budget .......... 1,809 GB/mo   (3x stored)
 full restore (B2 side) ...... $0
-full restore (vast side) .... $16.69        (618 GB x $27/TB)
+full restore (vast side) .... $16.28        (602.9 GB x $27/TB)
 ```
 **One transfer through this machine costs 4x the entire annual B2 storage
 bill.** Optimise the jump host, not any B2 line item.

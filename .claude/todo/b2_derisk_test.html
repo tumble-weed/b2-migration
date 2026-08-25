@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B2 de-risk test — prove B2 before moving 600 GB</title>
+<style>
+  :root { --bg:#0f1115; --fg:#e6e6e6; --mut:#9aa4b2; --acc:#6cb6ff; --warn:#ffb454; --ok:#7ee787; --bad:#ff7b72; --card:#171a21; --br:#2a2f3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:2rem 1.2rem 6rem; background:var(--bg); color:var(--fg);
+         font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; max-width:960px; margin-inline:auto; }
+  h1 { font-size:1.5rem; line-height:1.3; margin:0 0 .3rem; }
+  h2 { font-size:1.15rem; margin:2.2rem 0 .6rem; border-bottom:1px solid var(--br); padding-bottom:.3rem; }
+  h3 { font-size:1rem; margin:1.2rem 0 .4rem; color:var(--acc); }
+  code { background:#20242d; padding:.1rem .35rem; border-radius:4px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; }
+  pre { background:#0b0d11; border:1px solid var(--br); border-radius:8px; padding:.8rem 1rem; overflow-x:auto; font-size:.82rem; }
+  pre code { background:none; padding:0; }
+  .sub { color:var(--mut); margin:.1rem 0 0; }
+  .card { background:var(--card); border:1px solid var(--br); border-radius:10px; padding:1rem 1.2rem; margin:1rem 0; }
+  table { border-collapse:collapse; width:100%; margin:.6rem 0; font-size:.88rem; }
+  th,td { border:1px solid var(--br); padding:.4rem .55rem; text-align:left; vertical-align:top; }
+  th { background:#1c2029; }
+  td.n { text-align:right; font-family:ui-monospace,monospace; white-space:nowrap; }
+  .tag { display:inline-block; font-size:.72rem; padding:.1rem .5rem; border-radius:20px; border:1px solid var(--br); color:var(--mut); }
+  .decided { color:var(--ok); border-color:#2c5; }
+  .open { color:var(--warn); border-color:#a70; }
+  .broken { color:var(--bad); border-color:#a33; }
+  .mut { color:var(--mut); }
+  .fileref { color:var(--acc); font-family:ui-monospace,monospace; font-size:.82rem; }
+</style>
+</head>
+<body>
+<h1>B2 de-risk test — prove B2 before moving 600 GB</h1>
+<p class="sub">Written 2026-08-25, in session. Companion to
+<span class="fileref">.claude/todo/gdrive_to_b2_migration.md</span> (the migration
+architecture) and <span class="fileref">elp_with_scales/.claude/todo/results_payload_shrink.html</span>
+(what is inside the corpus). This file covers only the <b>small paid experiment</b> that decides
+whether B2 is safe to commit to. <b>Nothing here has been executed.</b>
+One action has already been taken outside this test: 211 corpus symlinks were rewritten
+absolute&rarr;relative (see §8).</p>
+
+<h2>1 &nbsp;Why this test exists</h2>
+<p>The goal is <b>to replace Google Drive</b>, not to sit alongside it. That raises the bar: the
+test has to prove <b>restore is trustworthy</b>, not just that upload is fast.</p>
+<table>
+<tr><th>Question</th><th>What answers it</th></tr>
+<tr><td>Is B2 faster than gdrive for <b>many small objects</b>?</td>
+    <td>objects/sec on the TINY payload, both backends, both directions</td></tr>
+<tr><td>Is B2 faster for <b>few large objects</b>?</td>
+    <td>MB/s on the BIG payload (multipart path)</td></tr>
+<tr><td>Does a re-written file cost bandwidth if content is unchanged?</td>
+    <td>no-op re-sync: bytes transferred must be 0</td></tr>
+<tr><td>Do old versions actually get purged?</td>
+    <td>overwrite one file, then check versions before/after GC</td></tr>
+<tr><td>Does the corpus come back <b>bit-identical</b>?</td>
+    <td>checksum compare on restore, into a scratch dir</td></tr>
+<tr><td>What does a full restore cost?</td>
+    <td>bytes transferred &times; price table (there is no billing API)</td></tr>
+</table>
+
+<h2>2 &nbsp;Decisions already locked (do not re-open)</h2>
+<table>
+<tr><th>Decision</th><th>Choice</th><th>Why</th></tr>
+<tr><td>transfer tool</td><td><span class="tag decided">rclone native <code>b2</code></span></td>
+    <td>First-class backend in rclone v1.73.0, same binary already used for gdrive. Filters
+    (<code>--filter-from</code>, <code>--exclude</code>) live in rclone core, so they behave
+    identically on b2 and gdrive. <code>b2sdk</code> is not in the transfer path.</td></tr>
+<tr><td>symlinks</td><td><span class="tag decided"><code>--links</code></span></td>
+    <td>Stores each symlink as a tiny <code>.rclonelink</code> file and recreates the real
+    symlink on download. Pointer round-trips; target data is not duplicated.</td></tr>
+<tr><td>archive scope</td><td><span class="tag decided">both trees</span></td>
+    <td><code>results-torchray</code> + <code>results-with-detailed-info</code>. 211 links point
+    from the first into the second; archiving only one leaves 211 dangling links.</td></tr>
+<tr><td>versioning</td><td><span class="tag decided"><code>daysFromHidingToDeleting=1</code></span></td>
+    <td>B2 versioning cannot be disabled. Overwrites always create a version, and hidden/superseded
+    versions bill storage. 1 day is the floor.</td></tr>
+<tr><td>keys</td><td><span class="tag decided">bucket-scoped</span></td>
+    <td>Master key only for the one-time lifecycle set (needs <code>writeBuckets</code>), then
+    removed from the config.</td></tr>
+<tr><td><code>--fast-list</code></td><td><span class="tag decided">no, not globally</span></td>
+    <td>Ops are free, so fast-list buys only speed and costs ~1 KB RAM per object (~4 GB at
+    corpus scale). Sync per-method-dir instead; get throughput from
+    <code>--transfers</code>/<code>--checkers</code>.
+    <span class="mut">Provisional &mdash; taken as a recommendation, revisit if the test shows
+    listing is the bottleneck.</span></td></tr>
+<tr><td>tarring small files</td><td><span class="tag broken">rejected</span></td>
+    <td>One changed file would force re-upload and re-download of the whole tar. The premise of
+    this work is that results <b>are</b> being re-written, so incremental sync is the thing that
+    must not be traded away.</td></tr>
+<tr><td>payment</td><td><span class="tag decided">manual monthly</span></td>
+    <td>Indian Visa debit is the weakest case for recurring international charges (RBI e-mandate
+    auto-declines). Treat autopay as a bonus; pay on a reminder. See §7.</td></tr>
+</table>
+
+<h2>3 &nbsp;Corpus facts this test is calibrated against</h2>
+<p>Full census taken 2026-08-25:
+<code>find . -type f -printf '%s\t%p\n'</code> over <code>results-torchray</code>.</p>
+<pre><code>files   4,054,466
+bytes     586.9 GB        (du --apparent-size reported 618 GB; trust the census)
+mean          141 KB
+</code></pre>
+<table>
+<tr><th>size band</th><th class="n">files</th><th class="n">% count</th><th class="n">bytes</th><th class="n">% bytes</th></tr>
+<tr><td>&lt;1 KB</td><td class="n">170,498</td><td class="n">4.2%</td><td class="n">0.04 GB</td><td class="n">0.0%</td></tr>
+<tr><td>1&ndash;10 KB</td><td class="n">3,424,535</td><td class="n">84.5%</td><td class="n">15.90 GB</td><td class="n">2.7%</td></tr>
+<tr><td>10&ndash;100 KB</td><td class="n">16,790</td><td class="n">0.4%</td><td class="n">0.81 GB</td><td class="n">0.1%</td></tr>
+<tr><td>100 KB&ndash;1 MB</td><td class="n">279,202</td><td class="n">6.9%</td><td class="n">141.23 GB</td><td class="n">24.1%</td></tr>
+<tr><td>1&ndash;10 MB</td><td class="n">162,241</td><td class="n">4.0%</td><td class="n">398.31 GB</td><td class="n">67.9%</td></tr>
+<tr><td>10&ndash;100 MB</td><td class="n">1,200</td><td class="n">0.0%</td><td class="n">30.57 GB</td><td class="n">5.2%</td></tr>
+</table>
+<div class="card">
+<b>88.7% of objects carry 2.7% of the bytes.</b> Largest single file is 103 MB, so nothing
+needs special handling beyond rclone's default 96 MiB multipart chunk.
+<p>Because B2 charges $0 for API transactions, that object count costs nothing. It costs
+<b>time</b> &mdash; one round trip each:</p>
+<pre><code>objects/sec     wall clock for 4.05M objects
+      5            9.4 days
+     20            2.3 days
+     50            0.9 days
+    100            0.5 days
+</code></pre>
+<b>objects/sec is the single number this test exists to produce.</b>
+</div>
+
+<h2>4 &nbsp;Pricing, verified 2026-08-25</h2>
+<p>Source: <code>backblaze.com/cloud-storage/pricing</code> and
+<code>/cloud-storage/transaction-pricing</code>, fetched in session.</p>
+<table>
+<tr><th>item</th><th>price</th></tr>
+<tr><td>storage</td><td>$6.95 / TB / mo &nbsp;($0.00695/GB)</td></tr>
+<tr><td>first 10 GB storage</td><td>free</td></tr>
+<tr><td>egress</td><td>free up to 3&times; average monthly stored</td></tr>
+<tr><td>egress past that</td><td>$0.01/GB &nbsp;($10/TB)</td></tr>
+<tr><td>Class A ops (upload, delete, multipart)</td><td><b>free</b></td></tr>
+<tr><td>Class B ops (download, HEAD)</td><td><b>free</b></td></tr>
+<tr><td>Class C ops (list, copy)</td><td><b>free</b></td></tr>
+<tr><td>Class D (webhook event notifications)</td><td>$0.004/10k, first 2,500/day free &mdash; not used</td></tr>
+<tr><td>minimum retention</td><td>none</td></tr>
+</table>
+<h3>Projected steady-state bill</h3>
+<pre><code>results-torchray             586.9 GB
+results-with-detailed-info    16.0 GB
+                            ---------
+                             602.9 GB
+
+billable = 602.9 - 10 free = 592.9 GB
+592.9 x $0.00695 = $4.12 / mo   =   $49.46 / yr
++18% GST         = $4.86 / mo   =   $58.36 / yr
+
+free egress budget = 3 x 602.9 = 1,809 GB / mo
+full restore (B2 side)   $0      (well inside the budget)
+full restore (vast side) $16.28  (602.9 GB x $27/TB)
+</code></pre>
+<div class="card">
+<b>One transfer through this machine costs 4&times; the entire annual B2 storage bill.</b>
+B2's line items are noise. The thing worth optimising is the jump host.
+</div>
+<h3>Against the current Google plan</h3>
+<pre><code>B2, 603 GB ........ $4.86/mo   ~= Rs 428     (at ~Rs 88/USD)
+current gdrive .... Rs 2000/mo
+
+but per-TB gdrive wins at that plan size:
+  5 TB on B2 ...... $34.75/mo  ~= Rs 3060
+  5 TB on gdrive .. Rs 2000
+</code></pre>
+<p><b>B2 is not a storage-cost win.</b> It is cheaper here only because the corpus is 0.6 TB,
+not 5 TB. The decision recorded in §2 is to <b>aim to replace gdrive</b>, so the saving
+(~Rs 1570/mo) only materialises if the Google plan is actually downgraded afterwards &mdash;
+which means §5's integrity leg is not optional.</p>
+
+<h2>5 &nbsp;The test</h2>
+<h3>Payloads</h3>
+<table>
+<tr><th></th><th>TINY</th><th>BIG</th></tr>
+<tr><td>what</td><td><code>cifar-10-grad_cam-vgg16/</code></td><td>top-50 largest files, corpus-wide</td></tr>
+<tr><td>objects</td><td class="n">10,000</td><td class="n">50</td></tr>
+<tr><td>bytes</td><td class="n">19 MB</td><td class="n">2.84 GB</td></tr>
+<tr><td>mean object</td><td class="n">1.9 KB</td><td class="n">~57 MB (largest 103 MB)</td></tr>
+<tr><td>what it isolates</td><td>per-object round-trip cost, near-zero byte load</td><td>raw throughput + multipart path</td></tr>
+</table>
+<p>Total ~2.86 GB, inside B2's 10 GB free tier, so the test itself is $0.
+<b>Nothing is copied locally</b> &mdash; BIG is selected with <code>--files-from</code> over the
+live tree, built from the census.</p>
+<p class="mut">Accepted risk: 10,000 objects measures a <i>rate</i> but will not reveal a throttle
+wall that only appears at 100k+ objects. The 30k cross-check was declined; if the backfill later
+stalls, this is the first assumption to revisit.</p>
+
+<h3>Timed legs &mdash; 2 payloads &times; 2 backends &times; 2 directions</h3>
+<table>
+<tr><th>#</th><th>leg</th><th>command shape</th></tr>
+<tr><td>1</td><td>TINY up &rarr; B2</td><td><code>rclone copy --links TINY b2:derisk/tiny</code></td></tr>
+<tr><td>2</td><td>TINY up &rarr; gdrive</td><td><code>rclone copy --links TINY gdrive:derisk/tiny</code></td></tr>
+<tr><td>3</td><td>BIG up &rarr; B2</td><td><code>rclone copy --files-from big.txt / b2:derisk/big</code></td></tr>
+<tr><td>4</td><td>BIG up &rarr; gdrive</td><td><code>rclone copy --files-from big.txt / gdrive:derisk/big</code></td></tr>
+<tr><td>5</td><td>TINY down &larr; B2</td><td><code>rclone copy --links b2:derisk/tiny SCRATCH/b2-tiny</code></td></tr>
+<tr><td>6</td><td>TINY down &larr; gdrive</td><td><code>rclone copy --links gdrive:derisk/tiny SCRATCH/gd-tiny</code></td></tr>
+<tr><td>7</td><td>BIG down &larr; B2</td><td><code>rclone copy b2:derisk/big SCRATCH/b2-big</code></td></tr>
+<tr><td>8</td><td>BIG down &larr; gdrive</td><td><code>rclone copy gdrive:derisk/big SCRATCH/gd-big</code></td></tr>
+</table>
+<p>Every leg runs with <code>--stats 10s --stats-one-line --log-level INFO --log-file</code> so
+wall clock, bytes and per-object rate are all recoverable from the log. Record for each:</p>
+<pre><code>wall clock | objects/sec | MB/s | bytes transferred | retries | errors
+</code></pre>
+<p><b>Restores go to a scratch dir only.</b> Never onto the live tree &mdash; a restore that lands
+on <code>results-torchray</code> could overwrite real results.</p>
+
+<h3>Behaviour checks (not timed &mdash; pass/fail)</h3>
+<table>
+<tr><th>check</th><th>method</th><th>pass condition</th></tr>
+<tr><td>no-op re-sync</td>
+    <td>run leg 1 again, unchanged source</td>
+    <td>bytes transferred = 0. This is what makes re-written-but-identical files free.</td></tr>
+<tr><td>changed-file re-sync</td>
+    <td>modify 1 file's content, re-run leg 1</td>
+    <td>exactly 1 object transferred, not 10,000</td></tr>
+<tr><td>version GC</td>
+    <td>after the overwrite: <code>rclone backend lifecycle b2:derisk</code>,
+        <code>rclone ls --b2-versions b2:derisk</code>, then
+        <code>rclone backend cleanup-hidden b2:derisk</code></td>
+    <td>old version visible before GC, gone after. Confirms the storage double-bill is bounded.</td></tr>
+<tr><td>bit-identical restore</td>
+    <td><code>rclone check --checksum</code> source vs each restored scratch dir; then
+        <code>lzma</code>+<code>pickle.load</code> a sample and compare arrays with
+        <code>(a == b).all()</code></td>
+    <td>zero differences. <b>Gating check</b> &mdash; the plan is to retire gdrive, so a restore
+        that is merely "probably fine" is not enough.</td></tr>
+<tr><td>symlink round-trip</td>
+    <td>include one <code>.rclonelink</code>-bearing dir; restore and <code>readlink</code></td>
+    <td>relative target string comes back byte-for-byte</td></tr>
+<tr><td>filter semantics</td>
+    <td><code>--filter-from</code> with an exclude rule, same file on b2 and gdrive</td>
+    <td>identical file sets on both backends</td></tr>
+</table>
+
+<h3>Cost accounting</h3>
+<p>There is <b>no billing or pricing endpoint</b> in the B2 API or <code>b2sdk</code>. Cost is
+computed, not queried:</p>
+<pre><code>egress $ = (bytes downloaded beyond the 3x free budget) x $0.01/GB
+ops $    = 0
+</code></pre>
+<p>Cross-check the byte totals against the account's <b>Caps &amp; Alerts</b> page, which is the
+authoritative usage counter. Set caps <b>before</b> the first upload.</p>
+
+<h2>6 &nbsp;Setup, in order</h2>
+<pre><code># 1. bucket, private, with the master key
+rclone config          # remote [b2master], type = b2
+rclone mkdir b2master:results-derisk
+
+# 2. one-time lifecycle rule (needs writeBuckets -> master key)
+rclone backend lifecycle b2master:results-derisk \
+    -o daysFromHidingToDeleting=1
+rclone backend lifecycle b2master:results-derisk   # read back, confirm
+
+# 3. bucket-scoped key for everything else
+b2 key create --bucket results-derisk rclone-derisk \
+    listBuckets,listFiles,readFiles,writeFiles
+
+# 4. second remote using ONLY the scoped key; drop [b2master]
+rclone config          # remote [b2], type = b2
+chmod 600 ~/.config/rclone/rclone.conf
+</code></pre>
+<p class="mut">The rclone config holds live credentials. It is not in any repo and must stay that
+way.</p>
+
+<h2>7 &nbsp;Payment risk &mdash; the only failure mode that loses data</h2>
+<p>B2 is usage-billed monthly, i.e. a recurring international charge. An Indian Visa debit card is
+the weakest case: RBI's e-mandate rule makes issuers auto-decline standing instructions to
+unregistered foreign merchants. Month 1 (clicked manually) clears; month 2 (automatic) is the one
+that fails.</p>
+<p>Backblaze's published non-payment phases:</p>
+<pre><code>charge fails
+  |
+  +-- Phase 1  grace. everything still works.
+  |            email within 48h, then every 5 days.
+  |            (length not published)
+  |
+  +-- Phase 2  2 weeks. uploads stop, data intact.
+  |
+  +-- Phase 3  2 weeks. "may be deleted at any moment"
+  |
+  +-- deleted
+</code></pre>
+<p>Source: <code>help.backblaze.com/hc/en-us/articles/219361957-B2-Non-payment-procedures</code>.
+Because Phase 1's length is unpublished, budget from the <b>first email</b>, not in weeks. Treat
+day 1 of Phase 3 as the deadline.</p>
+<table>
+<tr><th>mitigation</th><th>status</th></tr>
+<tr><td>pay manually on a monthly reminder; autopay is a bonus</td><td><span class="tag decided">decided</span></td></tr>
+<tr><td>confirm the bank app has international online transactions enabled</td><td><span class="tag open">to do</span></td></tr>
+<tr><td>set B2 caps &amp; alerts before the first upload</td><td><span class="tag open">to do</span></td></tr>
+<tr><td>keep the gdrive copy until two consecutive charges have cleared</td><td><span class="tag decided">decided</span></td></tr>
+<tr><td>forex card (Niyo / Fi / Wise) if the debit card declines</td><td><span class="tag open">fallback</span></td></tr>
+</table>
+
+<h2>8 &nbsp;Symlinks &mdash; measured, and one action already taken</h2>
+<p>Full sweep of both trees, all depths, 2026-08-25:</p>
+<pre><code>results-torchray
+  212 symlinks, ALL at method-dir level, none deeper
+    211 -> results-with-detailed-info/...   (resolve OK)
+      1 -> broken
+results-with-detailed-info
+    0 symlinks
+</code></pre>
+<h3>Action taken: 211 links rewritten absolute &rarr; relative</h3>
+<pre><code>before  /data/bigfiles/other/results-with-detailed-info/DIR/SAMPLE
+after   ../../results-with-detailed-info/DIR/SAMPLE
+</code></pre>
+<p>Absolute targets would have pinned the archive to this box's mount layout &mdash; restore to a
+different path and all 211 dangle. Relative targets survive any mount point.
+Script: <span class="fileref">scripts/relativize_links.py</span>.
+Rollback manifest (all 212 original targets):
+<span class="fileref">scripts/symlinks_before.tsv</span>.
+Pre-check and post-check both 211/211 resolving; zero absolute links remain.
+Committed as <code>2372ba6</code>.</p>
+<div class="card">
+<b>Restore rule this creates.</b> Both trees must land under the same parent:
+<pre><code>&lt;anywhere&gt;/
+  results-torchray/
+  results-with-detailed-info/
+</code></pre>
+Restore <code>results-torchray</code> alone and the 211 links dangle wherever you put it.
+Encode this as a guard in whatever restore script gets written.
+</div>
+<h3>The one broken link <span class="tag broken">left as-is</span></h3>
+<pre><code>imagenet-5000-SaSCAM-resnet50/
+  imagenet-5000-SaSCAM_area_jitter_ratio2_SaSCAM_layerlayer4-resnet50
+-> imagenet-5000-SaSCAM_area_jitter_ratio2_SaSCAM_layerlayer4-resnet50
+</code></pre>
+<p>A relative link resolved inside its own directory, where nothing exists. Searched all of
+<code>/data/bigfiles/other</code>: that target directory does not exist anywhere, so there is
+nothing to repoint it at. <code>--links</code> will archive the dead pointer verbatim.</p>
+<p><b>Correction to the other plans:</b> both previously described this as a "symlink loop at
+<code>results-torchray/imagenet-5000-SaSCAM-resnet50/</code>". It is not a loop. It is a single
+dangling link, and <code>find</code> reports no loop anywhere in either tree.</p>
+
+<h2>9 &nbsp;Permissions and tools needed to run this</h2>
+<table>
+<tr><th>need</th><th>who provides</th></tr>
+<tr><td>B2 account, card added</td><td>you &mdash; done</td></tr>
+<tr><td>bucket <code>results-derisk</code></td><td>you, or me once credentials exist</td></tr>
+<tr><td>master application key (one-time, for the lifecycle rule)</td><td>you</td></tr>
+<tr><td>bucket-scoped application key</td><td>created in §6 step 3</td></tr>
+<tr><td>caps &amp; alerts configured</td><td>you, web UI</td></tr>
+<tr><td>write access to a scratch dir for restores (~6 GB; 80 GB free on the overlay)</td><td>have it</td></tr>
+<tr><td><code>b2</code> CLI (only for <code>key create</code>) or use the web UI instead</td><td>not installed; web UI is fine</td></tr>
+<tr><td>rclone v1.73.0 with the <code>b2</code> backend</td><td>already present at <code>/usr/bin/rclone</code></td></tr>
+</table>
+<p><code>b2sdk</code> is <b>not</b> required &mdash; it is not in the transfer path and has no
+billing endpoint to offer.</p>
+
+<h2>10 &nbsp;Order of execution</h2>
+<pre><code>[ ] §6 setup: bucket, lifecycle rule, scoped key, caps
+[ ] build big.txt (top-50) from the census
+[ ] legs 1-4  (uploads)      -> record the table
+[ ] legs 5-8  (downloads)    -> record the table
+[ ] behaviour checks         -> pass/fail
+[ ] cost accounting          -> bytes x price table, cross-check Caps & Alerts
+[ ] write §11 Results / Postmortem
+[ ] only then: decide on the jump host and the real backfill
+</code></pre>
+<p class="mut">Nothing in §10 has been started.</p>
+
+<h2>11 &nbsp;Results / Postmortem</h2>
+<p class="mut">To be filled after execution.</p>
+
+</body>
+</html>
