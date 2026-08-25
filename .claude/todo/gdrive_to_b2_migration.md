@@ -11,7 +11,9 @@ unfinished when #2 reads gdrive, B2 will mirror whatever is there (dupes
 included) — finish #1 first for a clean B2.
 
 ## Provider decision — Backblaze B2
-- $6/TB/mo pay-as-you-go ($0.005/GB). India adds 18% GST → ~$7/TB effective.
+**Prices verified against backblaze.com/cloud-storage/pricing on 2026-08-25.**
+- $6.95/TB/mo pay-as-you-go ($0.00695/GB). First 10 GB free. India adds 18%
+  GST → ~$8.20/TB effective. (Was $6/TB when this plan was first written.)
 - Durability 11 nines; 99.9% uptime SLA; S3-compatible → no lock-in.
 - Alternatives weighed: Cloudflare R2 ($15/TB, zero egress), Wasabi
   ($7.99/TB, 90-day min + 1:1 egress cap), S3 Glacier (archive-only, slow
@@ -50,17 +52,37 @@ rclone lsf -R --files-only --format "ps" --separator $'\t' /local  > local.tsv
 - **cost estimate:** from the size column → file count + Σ ceil(size/chunk).
 - Optional `--format "psh"` adds hashes for later content checks.
 
-## Cost model (B2 operations)
-- Class A (writes) = $4.50 / million ops, billed on the **month's** op count
-  (not lifetime, not recurring). One-time upload of N files = one-time charge.
-- Multipart: large files upload in chunks; each chunk = 1 Class A op
-  (10 GB @ 100 MB chunks ≈ 100 ops). File-count is a floor.
-- Storage ($6/TB/mo) is the separate ongoing charge.
+## Cost model (B2 operations) — CORRECTED 2026-08-25
+**API transactions are FREE.** The earlier "$4.50 / million Class A ops" in
+this plan was wrong (that is S3 PUT pricing, not B2). Backblaze charges $0 for
+Class A (upload/delete), Class B (download/HEAD) and Class C (list/copy) on
+pay-as-you-go. Only Class D — webhook event notifications, which we never use —
+is billed ($0.004/10k, first 2,500/day free).
+- Consequence: the 4.05M-tiny-file corpus costs **$0 in ops**, uploaded or
+  listed or downloaded. Multipart chunk counts are also free.
+- The many-small-files problem is therefore **purely a latency problem**
+  (4.05M round trips, rclone crawl), not a cost problem. Do not tar for cost.
+- Storage ($6.95/TB/mo) is the only ongoing charge.
+
+### Concrete bill for the 618 GB corpus
+```
+billable = 618 - 10 free = 608 GB
+608 GB x $0.00695 = $4.23 / mo  =  $50.71 / yr
++18% GST          = $4.99 / mo  =  $59.84 / yr
+
+upload 618 GB (B2 side) ..... $0
+4.05M upload ops ............ $0
+free egress budget .......... 1,854 GB/mo   (3x stored)
+full restore (B2 side) ...... $0
+full restore (vast side) .... $16.69        (618 GB x $27/TB)
+```
+**One transfer through this machine costs 4x the entire annual B2 storage
+bill.** Optimise the jump host, not any B2 line item.
 
 ## Throttle insight (applies to gdrive AND b2)
 Throttle is **per-request**, not per-byte → many small files is the killer.
-Optional optimization: `tar` per experiment dir → far fewer objects, cheaper
-ops, faster everywhere. Trade-off: B2 has no server-side untar, so a tar is
+Optional optimization: `tar` per experiment dir → far fewer objects, faster
+everywhere. Note: with B2 ops free, the *only* payoff is speed, not cost. Trade-off: B2 has no server-side untar, so a tar is
 opaque (fetch+untar whole dir to read). Granularity choice:
 per-file (browsable, many ops) · per-experiment tar (few ops) · one big tar.
 
