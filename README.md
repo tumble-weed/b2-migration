@@ -43,9 +43,10 @@ export RCLONE_CONFIG_B2_KEY=<applicationKey>
 export RCLONE_CONFIG_GD_TYPE=drive
 export RCLONE_CONFIG_GD_SCOPE=drive.readonly
 export RCLONE_CONFIG_GD_TOKEN='{"access_token":"...","refresh_token":"..."}'
+export RCLONE_CONFIG_GD_ROOT_FOLDER_ID=<root_folder_id>
 
 export B2_BUCKET=<bucket>
-export GD_ROOT=<path on Drive holding the corpus>
+export GD_SUBPATH=          # optional, usually empty
 ```
 
 rclone reads remotes straight from `RCLONE_CONFIG_*` env vars, so **no
@@ -54,16 +55,36 @@ be revoked without touching the others, and give the droplet's key
 `listBuckets,listFiles,readFiles,writeFiles` — **not** `deleteFiles`, so a
 runaway sync cannot destroy the archive.
 
-Get the Drive token by running `rclone authorize "drive"` on your own machine
-and pasting the JSON blob.
+Get the Drive token on your own machine, minted **read-only**:
+
+```bash
+rclone authorize "drive" --drive-scope=drive.readonly
+```
+
+`RCLONE_CONFIG_GD_ROOT_FOLDER_ID` is the env equivalent of `root_folder_id` in
+`rclone.conf` — the corpus box already has it, which is why no path variable was
+ever needed by hand:
+
+```bash
+grep root_folder_id ~/.config/rclone/rclone.conf
+```
+
+It is a folder id, not a secret. `GD_SUBPATH` stays empty unless the corpus sits
+in a subfolder of that anchored root.
 
 It is deliberately **not** a git submodule: rotating a key should be one commit
 in `b2-secrets`, with no pointer to bump here.
 
 ## Google Drive is read-only
 
-`RCLONE_CONFIG_GD_SCOPE=drive.readonly` plus `rclone copy` (never `sync`) means
-nothing here can write to or delete from Drive. Drive stays a reference copy.
+Two independent guards:
+
+1. The **token** is minted read-only (`--drive-scope=drive.readonly` at
+   authorize time). Setting `scope=` in config does *not* reduce an
+   already-granted token's permissions — only the grant does.
+2. Every script uses `rclone copy`, never `sync`.
+
+Drive stays a reference copy.
 
 ## Running it
 

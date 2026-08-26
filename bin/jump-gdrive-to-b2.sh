@@ -3,20 +3,28 @@
 # Copies gdrive -> B2. Bytes stream through this box; nothing is staged on disk,
 # so a 25 GB droplet is fine.
 #
-# gdrive is READ-ONLY here: the secrets repo pins the remote to
-# scope=drive.readonly, and this script uses `copy`, never `sync`.
+# gdrive is READ-ONLY here, enforced two ways:
+#   1. the TOKEN is minted read-only:  rclone authorize "drive.readonly"
+#      Setting scope= in the config does NOT reduce an already-granted
+#      token's permissions; only the grant at authorize time does.
+#   2. this script uses `copy`, never `sync`.
 # Nothing in this repo can write to or delete from Google Drive.
 #
 # Usage:
 #   source ~/b2-secrets/b2env
-#   ./bin/jump-gdrive-to-b2.sh                 # all dirs under $GD_ROOT
+#   ./bin/jump-gdrive-to-b2.sh                 # all dirs at the gd: root
 #   ./bin/jump-gdrive-to-b2.sh --dry-run
 #   ./bin/jump-gdrive-to-b2.sh --dirs-from dirs.txt
 #   ./bin/jump-gdrive-to-b2.sh --transfers 32  # if RAM allows
 set -euo pipefail
 
 : "${B2_BUCKET:?run: source ~/b2-secrets/b2env}"
-: "${GD_ROOT:?run: source ~/b2-secrets/b2env}"
+# GD_SUBPATH is OPTIONAL and normally empty: the gd: remote is already
+# anchored by RCLONE_CONFIG_GD_ROOT_FOLDER_ID, so `gd:` alone IS the corpus
+# root. Set GD_SUBPATH only to descend into a subfolder of it.
+GD_SUBPATH="${GD_SUBPATH:-}"
+SRC="gd:${GD_SUBPATH}"
+DST_PREFIX="${GD_SUBPATH:+$GD_SUBPATH/}"
 
 DRY=""
 DIRS_FROM=""
@@ -42,8 +50,8 @@ log() { printf '[jump] %s\n' "$*" >&2; }
 if [ -n "$DIRS_FROM" ]; then
     mapfile -t DIRS < "$DIRS_FROM"
 else
-    log "listing top-level dirs under gd:$GD_ROOT"
-    mapfile -t DIRS < <(rclone lsf --dirs-only --format p "gd:$GD_ROOT" | sed 's:/$::')
+    log "listing top-level dirs under $SRC"
+    mapfile -t DIRS < <(rclone lsf --dirs-only --format p "$SRC" | sed 's:/$::')
 fi
 log "${#DIRS[@]} dirs to process, transfers=$TRANSFERS"
 
@@ -55,7 +63,7 @@ for d in "${DIRS[@]}"; do
         continue
     fi
     log "=== $d"
-    rclone copy "gd:$GD_ROOT/$d" "b2:$B2_BUCKET/$GD_ROOT/$d" \
+    rclone copy "$SRC/$d" "b2:$B2_BUCKET/${DST_PREFIX}$d" \
         $DRY \
         --links \
         --transfers "$TRANSFERS" --checkers 8 \
