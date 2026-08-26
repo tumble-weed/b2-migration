@@ -83,6 +83,11 @@ test has to prove <b>restore is trustworthy</b>, not just that upload is fast.</
     <code>--transfers</code>/<code>--checkers</code>.
     <span class="mut">Provisional &mdash; taken as a recommendation, revisit if the test shows
     listing is the bottleneck.</span></td></tr>
+<tr><td>compare criterion</td><td><span class="tag decided">default: size + mtime</span></td>
+    <td>User's call: keep the same flow already used for this box &rarr; gdrive, i.e. rclone's
+    standard size+mtime comparison. <code>--checksum</code> was proposed and <b>not</b> adopted.
+    Revisit only if a run shows mtime drift making rclone re-send unchanged files &mdash; visible
+    in the live stats within a minute, no separate dry-run needed.</td></tr>
 <tr><td>tarring small files</td><td><span class="tag broken">rejected</span></td>
     <td>One changed file would force re-upload and re-download of the whole tar. The premise of
     this work is that results <b>are</b> being re-written, so incremental sync is the thing that
@@ -90,6 +95,33 @@ test has to prove <b>restore is trustworthy</b>, not just that upload is fast.</
 <tr><td>payment</td><td><span class="tag decided">manual monthly</span></td>
     <td>Indian Visa debit is the weakest case for recurring international charges (RBI e-mandate
     auto-declines). Treat autopay as a bonus; pay on a reminder. See §7.</td></tr>
+</table>
+
+<h2>2b &nbsp;Fixed facts about the machines</h2>
+<table>
+<tr><th>thing</th><th>value</th></tr>
+<tr><td>gdrive remote</td>
+    <td><code>aniketsinghresearch-gdrive:</code> &mdash; <b>the only one in use.</b>
+    <code>mygoogledrive:</code> and <code>aiexplorations-gdrive:</code> both return
+    <code>invalid_grant</code> (expired) and are <b>not</b> part of this work. Do not probe or
+    reconnect them.</td></tr>
+<tr><td>jump host</td><td>existing DigitalOcean droplet, <b>Bangalore (BLR)</b>, $6 tier
+    (1 vCPU / 1 GiB / 25 GB / 1000 GiB transfer)</td></tr>
+<tr><td>B2 region</td><td><span class="tag open">OPEN &mdash; not decided</span>
+    <b>Correction: it is fixed at ACCOUNT creation, not bucket creation, and cannot be changed
+    afterwards. One account = one region; multi-region needs separate accounts. So if the B2
+    account already exists, this may already be settled &mdash; check the S3 endpoint in the
+    web UI before assuming otherwise.</b>
+    Regions: US West (Sacramento CA / Phoenix AZ), US East (Reston VA), EU Central (Amsterdam),
+    CA East (Toronto). Storage price is identical in all of them.
+    The trade is one-time backfill latency (BLR jump host favours
+    <code>eu-central-003</code>, ~130 ms vs ~250 ms to us-west) against recurring
+    restore latency when a vast instance dies and the corpus has to be copied to a new
+    one. Recurring should win. Claude previously recorded <code>eu-central-003</code>
+    here as decided; that was Claude's own pick, not the user's, and has been retracted.</td></tr>
+<tr><td>source box</td><td>this vast instance, currently Vietnam, location not stable</td></tr>
+<tr><td>verify box</td><td>a small, fresh vast instance &mdash; used once, to prove the restore
+    lands in the right place</td></tr>
 </table>
 
 <h2>3 &nbsp;Corpus facts this test is calibrated against</h2>

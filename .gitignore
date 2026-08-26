@@ -1,0 +1,12 @@
+# never commit credentials or generated env
+b2env
+*.env
+.env
+*-token.json
+credentials.json
+rclone.conf
+# generated artifacts
+logs/
+manifests/*.tsv
+!manifests/.gitkeep
+scratch/
