@@ -380,8 +380,43 @@ dangling link, and <code>find</code> reports no loop anywhere in either tree.</p
 <p><code>b2sdk</code> is <b>not</b> required &mdash; it is not in the transfer path and has no
 billing endpoint to offer.</p>
 
+<h2>9b &nbsp;Live state as of 2026-08-26</h2>
+<table>
+<tr><th>item</th><th>state</th></tr>
+<tr><td>B2 account + card</td><td><span class="tag decided">done</span></td></tr>
+<tr><td>bucket</td><td><span class="tag decided">done</span> <code>aniketsinghresearch</code>, empty</td></tr>
+<tr><td>lifecycle rule</td><td><span class="tag decided">done 2026-08-26</span>
+    <code>daysFromHidingToDeleting=1</code>, read back and confirmed. The trap was verified
+    first on a 24-byte probe: <code>rclone delete</code> left
+    <code>_probe-v2026-08-26-125803-353.txt</code> hidden and still billing;
+    <code>rclone backend cleanup-hidden</code> removed it.</td></tr>
+<tr><td>credentials</td><td><span class="tag decided">done</span> all five fields in
+    <code>b2-secrets/b2env</code>. Verified end to end: B2 upload + read-back OK, gdrive read
+    OK, gdrive <b>write refused</b> with <code>insufficientPermissions</code> &mdash; so the
+    read-only token grant is real, not just a config line.</td></tr>
+<tr><td>repos</td><td><span class="tag decided">done</span>
+    <code>tumble-weed/b2-migration</code> (public, scripts) and
+    <code>tumble-weed/b2-secrets</code> (private, creds)</td></tr>
+<tr><td><b>B2 key scope</b></td><td><span class="tag open">OPEN &mdash; deferred by the user</span>
+    The single key in use has <code>writeBuckets</code> (it set the lifecycle rule) and
+    <code>deleteFiles</code> (it ran cleanup-hidden), so it can reconfigure buckets, delete
+    buckets, and hard-delete any object. Fine on this box; <b>a larger blast radius than wanted
+    on a public-IP droplet</b> &mdash; one compromised box could destroy the archive. The fix is
+    a second bucket-scoped key (<code>listBuckets,listFiles,readFiles,writeFiles</code> only)
+    for the droplet, which needs a per-machine branch in <code>b2env</code>.
+    <b>Deliberately deferred: proceeding with the single key for now.</b> Revisit before any
+    long unattended run.</td></tr>
+<tr><td>gdrive root listing</td><td><span class="tag open">slow</span>
+    <code>rclone lsf --dirs-only gd:</code> had not finished after 90 s. The jump script's first
+    step is exactly this listing, so on the droplet it will sit a while before any transfer
+    starts &mdash; do not mistake it for a hang. Mitigate with <code>GD_SUBPATH</code> or
+    <code>--dirs-from</code>.</td></tr>
+<tr><td>caps &amp; alerts</td><td><span class="tag open">to do</span></td></tr>
+</table>
+
 <h2>10 &nbsp;Order of execution</h2>
-<pre><code>[ ] §6 setup: bucket, lifecycle rule, scoped key, caps
+<pre><code>[x] §6 setup: bucket + lifecycle rule + key + creds   (2026-08-26)
+[ ] set B2 caps &amp; alerts
 [ ] build big.txt (top-50) from the census
 [ ] legs 1-4  (uploads)      -> record the table
 [ ] legs 5-8  (downloads)    -> record the table
