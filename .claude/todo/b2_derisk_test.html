@@ -411,7 +411,23 @@ billing endpoint to offer.</p>
     step is exactly this listing, so on the droplet it will sit a while before any transfer
     starts &mdash; do not mistake it for a hang. Mitigate with <code>GD_SUBPATH</code> or
     <code>--dirs-from</code>.</td></tr>
-<tr><td>caps &amp; alerts</td><td><span class="tag open">to do</span></td></tr>
+<tr><td>caps &amp; alerts</td><td><span class="tag open">to do</span> — values decided:
+    <b>storage cap 800 GB</b> (corpus 603 GB plus headroom for the 1-day version overlap;
+    ceiling $5.56/mo), <b>everything else uncapped</b>, <b>alert email at 80%</b>.
+    <br><br>
+    A cap is a hard stop, not a warning: hit it and B2 refuses that class of operation for the
+    rest of the day, which mid-transfer looks like a flood of errors. So the risk is setting one
+    too low, not overspending.
+    <br><br>
+    Do <b>not</b> cap transactions &mdash; 2.82M objects means millions of Class A/B/C calls,
+    all free, and a cap there would abort the backfill.
+    <br><br>
+    Do <b>not</b> cap downloads either. Claude first suggested 50 GB/day; that was wrong. Free
+    egress is 1,809 GB/<i>month</i> (3&times; stored) while the cap is per <i>day</i>, so no
+    daily number enforces the monthly budget — and 50 GB/day would have aborted the very
+    full-restore leg this test exists to prove (603 GB in one run). The only thing a download
+    cap catches is a runaway re-download loop, and the 80% alert catches that without killing
+    anything.</td></tr>
 </table>
 
 <h2>10 &nbsp;Order of execution</h2>
