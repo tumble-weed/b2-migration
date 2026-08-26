@@ -57,8 +57,8 @@ source "$SECRETS_DIR/b2env"
 log "B2 account:"
 rclone about b2:"${B2_BUCKET:?B2_BUCKET not set in b2env}" || {
     log "FAILED to reach b2:$B2_BUCKET -- check the key and bucket name"; exit 1; }
-log "gdrive (read-only scope):"
-rclone lsd gd:"${GD_ROOT:?GD_ROOT not set in b2env}" | head -5
+log "gdrive (read-only token, anchored at root_folder_id):"
+rclone lsd gd:"${GD_SUBPATH:-}" | head -5
 
 cat <<MSG
 
