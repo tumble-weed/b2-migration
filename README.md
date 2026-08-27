@@ -130,10 +130,22 @@ source ~/b2-secrets/b2env
 ./bin/source-local-to-b2.sh --src /data/bigfiles/other/results-torchray
 ./bin/source-local-to-b2.sh --src /data/bigfiles/other/results-with-detailed-info
 
-# leg 3, on a fresh box
+# leg 3, on a fresh box -- presets, nothing to remember
 source ~/b2-secrets/b2env
-./bin/verify-b2-restore.py --prefix results-torchray --dest ./scratch
+./bin/verify-b2-restore.py --preset derisk
+./bin/verify-b2-restore.py --preset results
+./bin/verify-b2-restore.py --preset metrics
 ```
+
+`verify-b2-restore.py` takes the same preset names as the jump script, and
+defaults `--dest` to `./scratch`. It needs **no torch**: full lzma
+decompression is the mandatory integrity check (xz carries a CRC over the
+whole stream), and unpickling is best-effort — skipped, not failed, when
+`torch` is absent, which it will be on a bare verify box.
+
+If the checksum step reports "N files missing" locally, an upload is still in
+flight — B2 has more objects than were downloaded. Re-run once leg 1 prints
+`[jump] done`.
 
 Leg 1 is per-directory and resumable — a `.done` marker per directory in
 `logs/jump/`, so a killed run picks up where it stopped.

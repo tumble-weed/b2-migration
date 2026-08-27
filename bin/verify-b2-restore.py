@@ -13,9 +13,9 @@ copy of the original, so the checks are ones that need no original:
 
 Usage:
     source ~/b2-secrets/b2env
+    ./bin/verify-b2-restore.py --preset derisk          # nothing to remember
+    ./bin/verify-b2-restore.py --preset derisk --skip-download
     ./bin/verify-b2-restore.py --prefix results-torchray --dest ./scratch
-    ./bin/verify-b2-restore.py --prefix results-torchray --dest ./scratch \
-        --sample 50 --skip-download
 """
 
 from __future__ import annotations
@@ -36,6 +36,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("verify")
 
 
+# Same preset names as jump-gdrive-to-b2.sh, so one word carries the whole
+# invocation on a box you have never logged into before.
+PRESETS: Dict[str, str] = {
+    "derisk": "_derisk/results-torchray/cifar-10-grad_cam-vgg16",
+    "results": "results-torchray",
+    "metrics": "metrics-torchray",
+    "detailed": "results-with-detailed-info",
+}
+
+
 @dataclass(frozen=True)
 class Config:
     bucket: str
@@ -49,10 +59,13 @@ class Config:
 
 def parse_args() -> Config:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--prefix", required=True,
+    ap.add_argument("--preset", choices=sorted(PRESETS),
+                    help="named target; fills in --prefix and --dest for you")
+    ap.add_argument("--prefix",
                     help="path under the bucket to restore, e.g. results-torchray")
-    ap.add_argument("--dest", required=True, type=Path,
-                    help="scratch dir to restore into. MUST NOT be a live corpus path.")
+    ap.add_argument("--dest", type=Path,
+                    help="scratch dir to restore into. MUST NOT be a live corpus path. "
+                         "Defaults to ./scratch/<preset>.")
     ap.add_argument("--sample", type=int, default=25,
                     help="how many .xz files to actually load (default 25)")
     ap.add_argument("--transfers", type=int, default=16)
@@ -61,10 +74,23 @@ def parse_args() -> Config:
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
-    bucket = os.environ.get("B2_BUCKET")
-    if not bucket:
+    if args.preset:
+        prefix = args.prefix if args.prefix else PRESETS[args.preset]
+        # dest/prefix is how download() lays things out, so the preset must NOT
+        # also put the name in dest -- that gave scratch/derisk/_derisk/...
+        dest = args.dest if args.dest else Path("./scratch")
+    else:
+        if not args.prefix or not args.dest:
+            raise SystemExit(
+                "give --preset, or both --prefix and --dest.\n"
+                f"presets: {', '.join(sorted(PRESETS))}"
+            )
+        prefix, dest = args.prefix, args.dest
+
+    if "B2_BUCKET" not in os.environ:
         raise SystemExit("B2_BUCKET not set -- run: source ~/b2-secrets/b2env")
-    return Config(bucket=bucket, prefix=args.prefix, dest=args.dest,
+    bucket = os.environ["B2_BUCKET"]
+    return Config(bucket=bucket, prefix=prefix, dest=dest,
                   sample=args.sample, transfers=args.transfers,
                   skip_download=args.skip_download, seed=args.seed)
 
@@ -133,20 +159,44 @@ def check_symlinks(root: Path) -> Tuple[int, int, int, List[str]]:
     return links, relative, resolving, problems
 
 
-def check_payloads(root: Path, sample: int, seed: int) -> Tuple[int, List[str]]:
-    """lzma+pickle load a random sample of .xz files. Proves they are not corrupt."""
+def check_payloads(root: Path, sample: int,
+                   seed: int) -> Tuple[int, int, int, List[str]]:
+    """Integrity-check a random sample of .xz files.
+
+    Returns (n_sampled, n_decompressed, n_unpickled, problems).
+
+    Two tiers, because a small fresh box very likely has no torch and these
+    pickles hold torch tensors:
+
+      MANDATORY  full lzma decompression. xz carries a CRC over the whole
+                 stream, so decompressing every byte without error is the real
+                 proof that B2 gave back exactly what went in.
+      BEST EFFORT  unpickle and look for a 'saliency' key. Skipped, not failed,
+                 when the module the pickle references is missing.
+    """
     xz = list(root.rglob("*.xz"))
     if not xz:
-        return 0, ["no .xz files found under the restore -- wrong prefix?"]
+        return 0, 0, 0, ["no .xz files found under the restore -- wrong prefix?"]
     rng = random.Random(seed)
     picked = rng.sample(xz, min(sample, len(xz)))
     problems: List[str] = []
-    ok = 0
+    decompressed = 0
+    unpickled = 0
     for path in picked:
         try:
             with lzma.open(path, "rb") as fh:
-                obj = pickle.load(fh)
-        except (lzma.LZMAError, EOFError, pickle.UnpicklingError, OSError) as exc:
+                raw = fh.read()
+        except (lzma.LZMAError, EOFError, OSError) as exc:
+            problems.append(f"CORRUPT {path}: {type(exc).__name__}: {exc}")
+            continue
+        decompressed += 1
+
+        try:
+            obj = pickle.loads(raw)
+        except ModuleNotFoundError as exc:
+            # e.g. no torch on a bare verify box. Not a data problem.
+            continue
+        except (pickle.UnpicklingError, EOFError, AttributeError) as exc:
             problems.append(f"{path}: {type(exc).__name__}: {exc}")
             continue
         if not isinstance(obj, dict):
@@ -155,8 +205,8 @@ def check_payloads(root: Path, sample: int, seed: int) -> Tuple[int, List[str]]:
         if "saliency" not in obj:
             problems.append(f"{path}: no 'saliency' key; keys={sorted(obj)[:8]}")
             continue
-        ok += 1
-    return ok, problems
+        unpickled += 1
+    return len(picked), decompressed, unpickled, problems
 
 
 def main() -> None:
@@ -175,7 +225,8 @@ def main() -> None:
 
     ck_ok, ck_tail = check_checksums(cfg)
     links, relative, resolving, link_problems = check_symlinks(root)
-    loaded, payload_problems = check_payloads(root, cfg.sample, cfg.seed)
+    sampled, decompressed, unpickled, payload_problems = check_payloads(
+        root, cfg.sample, cfg.seed)
 
     print("\n================ VERIFY REPORT ================")
     print(f"restore root      {root}")
@@ -183,14 +234,24 @@ def main() -> None:
     print(f"checksum compare  {'PASS' if ck_ok else 'FAIL'}")
     for line in ck_tail.splitlines():
         print(f"    {line}")
+    if not ck_ok and "files missing" in ck_tail:
+        print("    HINT: 'files missing' on the local side means B2 has more")
+        print("          objects than we downloaded -- almost always an upload")
+        print("          still in flight. Re-run once leg 1 prints '[jump] done'.")
     print(f"symlinks          {links} found, {relative} relative, {resolving} resolving")
     for p in link_problems[:10]:
         print(f"    ! {p}")
-    print(f"payload loads     {loaded}/{cfg.sample} sampled .xz loaded with a 'saliency' key")
+    print(f"xz decompress     {decompressed}/{sampled} sampled files decompressed clean")
+    if unpickled == sampled:
+        print(f"pickle + saliency {unpickled}/{sampled}")
+    else:
+        print(f"pickle + saliency {unpickled}/{sampled}"
+              f"  (unpickling needs torch; skipped where unavailable)")
     for p in payload_problems[:10]:
         print(f"    ! {p}")
 
-    failed = (not ck_ok) or bool(payload_problems) or bool(link_problems)
+    failed = ((not ck_ok) or bool(payload_problems) or bool(link_problems)
+              or decompressed != sampled)
     print(f"\nOVERALL           {'FAIL' if failed else 'PASS'}")
     print("===============================================")
     sys.exit(1 if failed else 0)
