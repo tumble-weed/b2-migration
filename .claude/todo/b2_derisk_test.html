@@ -430,6 +430,70 @@ billing endpoint to offer.</p>
     anything.</td></tr>
 </table>
 
+<h2>9c &nbsp;Incidents and gotchas found while setting up</h2>
+<h3>Credentials were synced to Google Drive <span class="tag broken">resolved 2026-08-27</span></h3>
+<p><code>coding-practice/b2-secrets/</code> sits inside <code>/root/evaluate-saliency-4</code>,
+which <code>upload_instance_to_gdrive_</code> rclone-<b>syncs</b> to
+<code>gd:vast-112/evaluate-saliency-4</code> in a <code>while true</code> loop. So the live B2
+application key and the Drive OAuth refresh token were uploaded to Drive &mdash; in
+<code>b2env</code> as plaintext, and again inside the repo's <code>.git/</code> history.
+Confirmed present, then deleted from Drive by the user.</p>
+<p>Fix: <code>**/b2-secrets/**</code> added to <code>rclone_common_exclude_pattern</code> in
+<span class="fileref">vast-utils/gdrive_shortcuts.sh</span> (commit <code>37d5c90</code>).
+The directory was deliberately <b>not</b> moved &mdash; the user's call.</p>
+<p>Two things this fix does <b>not</b> do, both easy to assume wrongly:</p>
+<ul>
+<li><code>rclone sync</code> <b>leaves excluded remote files alone</b>. Once excluded, sync stops
+seeing the path entirely and will never delete an already-uploaded copy. That deletion is always
+manual, Trash included.</li>
+<li>The running loop's shell holds <code>rclone_common_exclude_pattern</code> from whenever it
+sourced the file. Editing the file changes nothing until
+<code>tmux kill-session -t t-rclone-instance</code> and a relaunch. Delete from Drive
+<i>before</i> restarting and the next pass simply re-uploads it.</li>
+</ul>
+<p class="mut">Rotation of the two credentials was raised and is still open &mdash; the exposure
+was to the user's own private Drive. The B2 key is the one with teeth (see the key-scope row in
+&sect;9b).</p>
+
+<h3>The Drive corpus lives in two places</h3>
+<table>
+<tr><th>Drive path</th><th class="n">subdirs</th><th>status</th></tr>
+<tr><td><code>vast-112/results-torchray</code></td><td class="n">601</td>
+    <td>live &mdash; what <code>upload_bigfiles_other_</code> writes</td></tr>
+<tr><td><code>results-torchray</code></td><td class="n">393</td>
+    <td>older partial copy; its uploader is commented out</td></tr>
+<tr><td><code>vast-112/metrics-torchray</code></td><td class="n">20</td><td>live</td></tr>
+<tr><td><code>metrics-torchray</code></td><td class="n">0</td><td>empty</td></tr>
+<tr><td><code>results-with-detailed-info</code></td><td class="n">&mdash;</td>
+    <td><b>not on Drive at all</b>; its 16 GB can only come from leg 2</td></tr>
+</table>
+<p>This is &quot;effort #1&quot; from
+<span class="fileref">gdrive_to_b2_migration.md</span>. Resolved for our purposes by pointing the
+presets at <code>vast-112/</code> only.</p>
+
+<h3>Related bug in <span class="fileref">vast-utils/download_bigfiles_other_from_rclone.sh</span>
+<span class="tag open">not fixed &mdash; not ours to touch</span></h3>
+<pre><code>rclone copy -P aniketsinghresearch-gdrive:results-torchray     /root/bigfiles/other/results-torchray</code></pre>
+<p>Two things wrong in one line: it reads the <b>stale 393-dir</b> bare path, and writes to
+<code>/root/bigfiles/</code> rather than <code>/data/bigfiles/</code>.</p>
+<p>It is <b>not</b> safe on the assumption that the newer file wins. Plain <code>rclone copy</code>
+transfers whenever size or mtime <i>differ</i>, in either direction, so an older remote file will
+overwrite a newer local one. <code>--update</code> is the flag that makes newer win, and it is not
+there.</p>
+
+<h3>The jump script would have copied the entire Drive
+<span class="tag broken">fixed 2026-08-27</span></h3>
+<p><code>gd:</code> is anchored at the Drive <b>root</b> (~200 unrelated folders: resumes, course
+downloads, Takeout), not at the corpus. The first version of
+<code>jump-gdrive-to-b2.sh</code> defaulted to listing and copying everything there. Caught by the
+user before anything ran. Now <code>--src</code>/<code>--preset</code> is required and
+<code>&quot;&quot;</code>, <code>/</code>, <code>.</code> are refused.</p>
+
+<h3>Drive listing is slow</h3>
+<p>A <code>--dry-run</code> over the de-risk dir alone (10,000 sample folders) did not finish in
+500 s from this box. Drive's API is the bottleneck, not rclone. Leg 1 will appear to hang at its
+listing step; it is not hung.</p>
+
 <h2>10 &nbsp;Order of execution</h2>
 <pre><code>[x] §6 setup: bucket + lifecycle rule + key + creds   (2026-08-26)
 [ ] set B2 caps &amp; alerts
