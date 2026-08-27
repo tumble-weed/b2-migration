@@ -39,6 +39,10 @@ DIRS_FROM=""
 TRANSFERS=16
 CHECKERS=8
 TPSLIMIT=12
+# rclone's Drive backend has its OWN pacer, default 100ms between API calls =
+# a hard 10 requests/sec ceiling regardless of --tpslimit. On a workload that
+# is nothing but API calls, that default is the dominant cost.
+PACER=100ms
 LOGDIR="${LOGDIR:-$PWD/logs/jump}"
 
 usage() {
@@ -57,6 +61,7 @@ while [ $# -gt 0 ]; do
         --transfers)  TRANSFERS="$2"; shift ;;
         --checkers)   CHECKERS="$2"; shift ;;
         --tpslimit)   TPSLIMIT="$2"; shift ;;
+        --pacer)      PACER="$2"; shift ;;
         -h|--help)    usage ;;
         *) echo "unknown arg: $1" >&2; usage ;;
     esac
@@ -102,6 +107,7 @@ RCLONE_ARGS=(
     --transfers "$TRANSFERS" --checkers "$CHECKERS"
     --buffer-size 4M
     --tpslimit "$TPSLIMIT" --tpslimit-burst "$((TPSLIMIT * 2))"
+    --drive-pacer-min-sleep "$PACER"
     --retries 3 --low-level-retries 20
     --exclude "$EXCLUDE"
     --stats 30s
@@ -110,7 +116,7 @@ RCLONE_ARGS=(
 log "source      gd:$SRC"
 log "destination b2:$B2_BUCKET/$DST"
 log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo 'single copy')"
-log "tuning      transfers=$TRANSFERS checkers=$CHECKERS tpslimit=$TPSLIMIT"
+log "tuning      transfers=$TRANSFERS checkers=$CHECKERS tpslimit=$TPSLIMIT pacer=$PACER"
 [ -n "$DRY" ] && log "DRY RUN -- nothing will be written"
 
 if [ -z "$PER_DIR" ]; then
