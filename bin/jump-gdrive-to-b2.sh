@@ -100,7 +100,7 @@ RCLONE_ARGS=(
     --tpslimit 12 --tpslimit-burst 24
     --retries 3 --low-level-retries 20
     --exclude "$EXCLUDE"
-    --stats 30s --stats-one-line
+    --stats 30s
 )
 
 log "source      gd:$SRC"
@@ -111,8 +111,8 @@ log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo
 if [ -z "$PER_DIR" ]; then
     single_log="$LOGDIR/$(echo "$DST" | tr / _).log"
     log "log         $single_log"
-    log "Drive enumeration is slow and prints nothing for a while. To watch:"
-    log "  tail -f $single_log"
+    log "Drive enumeration is slow. Watch the Checks counter -- that is the"
+    log "progress; Transferred stays at 0 B on a --dry-run by definition."
     rclone copy "gd:$SRC" "b2:$B2_BUCKET/$DST" $DRY "${RCLONE_ARGS[@]}" \
         --log-level INFO --log-file "$single_log"
     log "done. log: $single_log"
