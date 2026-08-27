@@ -37,6 +37,8 @@ DRY=""
 PER_DIR=""
 DIRS_FROM=""
 TRANSFERS=16
+CHECKERS=8
+TPSLIMIT=12
 LOGDIR="${LOGDIR:-$PWD/logs/jump}"
 
 usage() {
@@ -53,6 +55,8 @@ while [ $# -gt 0 ]; do
         --per-dir)    PER_DIR="yes" ;;
         --dirs-from)  DIRS_FROM="$2"; shift ;;
         --transfers)  TRANSFERS="$2"; shift ;;
+        --checkers)   CHECKERS="$2"; shift ;;
+        --tpslimit)   TPSLIMIT="$2"; shift ;;
         -h|--help)    usage ;;
         *) echo "unknown arg: $1" >&2; usage ;;
     esac
@@ -95,9 +99,9 @@ log() { printf '[jump] %s\n' "$*" >&2; }
 RCLONE_ARGS=(
     --links
     -P
-    --transfers "$TRANSFERS" --checkers 8
+    --transfers "$TRANSFERS" --checkers "$CHECKERS"
     --buffer-size 4M
-    --tpslimit 12 --tpslimit-burst 24
+    --tpslimit "$TPSLIMIT" --tpslimit-burst "$((TPSLIMIT * 2))"
     --retries 3 --low-level-retries 20
     --exclude "$EXCLUDE"
     --stats 30s
@@ -106,6 +110,7 @@ RCLONE_ARGS=(
 log "source      gd:$SRC"
 log "destination b2:$B2_BUCKET/$DST"
 log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo 'single copy')"
+log "tuning      transfers=$TRANSFERS checkers=$CHECKERS tpslimit=$TPSLIMIT"
 [ -n "$DRY" ] && log "DRY RUN -- nothing will be written"
 
 if [ -z "$PER_DIR" ]; then
