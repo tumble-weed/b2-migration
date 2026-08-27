@@ -493,6 +493,85 @@ user before anything ran. Now <code>--src</code>/<code>--preset</code> is requir
 500 s from this box. Drive's API is the bottleneck, not rclone. Leg 1 will appear to hang at its
 listing step; it is not hung.</p>
 
+<h2>9d &nbsp;Running both legs at once &mdash; and why leg 1 is slower than assumed</h2>
+<h3>The finding that reshaped this: 3,939,217 directories</h3>
+<pre><code>find /data/bigfiles/other/results-torchray -type d | wc -l
+3939217</code></pre>
+<p>The corpus is <b>one directory per sample</b>. Google Drive has no recursive listing, so rclone
+must issue a separate query per directory. Leg 1 is therefore bound by ~3.94M Drive directory
+queries, <b>not</b> by bytes and not by B2.</p>
+<pre><code>measured, descending:   ~4.2 dirs/sec   (a --tpslimit 12 run)
+3,939,217 / 4.2      =  ~11 days
+at 20/sec            =  ~2.3 days
+at 50/sec            =  ~22 hours</code></pre>
+<p class="mut">The 4.2/sec figure is partly self-inflicted &mdash; the jump script capped rclone
+at <code>--tpslimit 12</code> to avoid 403 storms, which is a poor default for a
+directory-bound workload. The honest range is one day to eleven, still unmeasured.</p>
+<p>Consequence: this box must not idle through leg 1, and equally must not re-send files leg 1
+will fetch from Drive for free.</p>
+
+<h3>Design: scope leg 2 by a depth-2 Drive manifest</h3>
+<p>User's idea, in its exact form. Rather than a per-file listing (which needs the same 3.94M
+queries) or a timestamp watermark (which needs the same listing anyway), list Drive at
+<b>depth 2</b> &mdash; the <code>&lt;method&gt;/&lt;sample&gt;/</code> dirs. That is a
+<b>paged</b> listing, 1,000 entries per call, not one call per directory.</p>
+<pre><code>measured on an uncached method dir:
+  10,000 sample dirs in 77 s  =  ~130 dirs/sec
+whole corpus: 3,939,217 / 130 =  ~8.4 hours, once</code></pre>
+<table>
+<tr><th>step</th><th>where</th><th>cost</th></tr>
+<tr><td><code>bin/list-gdrive-samples.sh</code></td><td>droplet</td>
+    <td>~8 h, resumable, negligible bytes</td></tr>
+<tr><td><code>bin/plan-local-gap.py</code></td><td>this box</td>
+    <td>seconds &mdash; local sample dirs MINUS the manifest &rarr;
+    <code>manifests/local_gap.txt</code></td></tr>
+<tr><td><code>source-local-to-b2.sh --files-from</code></td><td>this box</td>
+    <td>uploads only the gap, concurrent with leg 1</td></tr>
+<tr><td><code>source-local-to-b2.sh</code> (no filter)</td><td>this box, AFTER leg 1</td>
+    <td>final full sweep; cheap because B2 already holds nearly everything</td></tr>
+</table>
+
+<h3>Accepted blind spot, quantified</h3>
+<p>The manifest proves a sample <i>directory</i> exists on Drive, not that every file inside it
+does. Measured distribution of files per leaf directory:</p>
+<table>
+<tr><th>files in dir</th><th class="n">dirs</th><th class="n">share</th></tr>
+<tr><td>1</td><td class="n">3,819,996</td><td class="n">97.4%</td></tr>
+<tr><td>2</td><td class="n">79,609</td><td class="n">2.0%</td></tr>
+<tr><td>3</td><td class="n">19,364</td><td class="n">0.5%</td></tr>
+<tr><td>4+</td><td class="n">4,093</td><td class="n">0.1%</td></tr>
+</table>
+<p>So dir-presence <b>is</b> file-presence for 97.4% of the corpus. Only the 103,062 multi-file
+dirs can hide a missing file, and only if the Drive upload stopped mid-directory. The final
+sweep catches them.</p>
+<p class="mut">This replaced an earlier proposal to partition at <i>method</i>-dir granularity,
+which the user rejected: many Drive method dirs are incomplete, so whole dirs would have been
+skipped wholesale and the end sweep would have been enormous &mdash; and growing, since new
+results accrue while leg 1 crawls. Sample-dir granularity reduces that from a systematic gap to
+a 2.6% residue.</p>
+
+<h3>Verification done, not assumed</h3>
+<p>A synthetic corpus exercising a multi-file sample dir already on Drive, loose files at both
+corpus-root and method level, and a symlink produced exactly the expected 5-path gap list. That
+list was then uploaded to the real bucket and exactly those 5 objects landed; test objects were
+purged afterwards. Notably <code>methodA/s1/y.xz</code> was correctly <b>omitted</b> because
+Drive had <code>methodA/s1</code> &mdash; the 2.6% blind spot behaving as designed.</p>
+
+<h3>Directory diff at method level, for reference</h3>
+<pre><code>local  613 method dirs
+Drive  601 method dirs
+
+local-only, 14 dirs / ~59,900 files / 37.2 GB:
+  the whole integrated_gradients + integrated_gradients_abs family,
+  layercam_paper (+train variants), and CAMERAS-swinT (empty, 0 files)
+
+Drive-only, 2 dirs:
+  deleted_jul5
+  imagenet-5000-rise-vgg16_bkup   <-- the 19 GB backup deleted locally
+                                      on 2026-08-23; Drive still has it</code></pre>
+<p><span class="tag open">OPEN</span> whether those two Drive-only dirs should be archived at all.
+Running the full 601-dir list would pull both, including 19 GB you deliberately deleted.</p>
+
 <h2>10 &nbsp;Order of execution</h2>
 <pre><code>[x] §6 setup: bucket + lifecycle rule + key + creds   (2026-08-26)
 [ ] set B2 caps &amp; alerts
