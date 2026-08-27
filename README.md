@@ -96,12 +96,44 @@ Presets carry those paths and drop the `vast-112/` prefix, so B2 mirrors the
 
 | preset | Drive | B2 |
 |---|---|---|
-| `derisk` | `vast-112/results-torchray/cifar-10-grad_cam-vgg16` | `_derisk/results-torchray/cifar-10-grad_cam-vgg16` |
+| `derisk` | `.../cifar-10-grad_cam-vgg16` | `_derisk/results-torchray/cifar-10-grad_cam-vgg16` |
+| `derisk-live` | `.../cifar-10-gradient-vgg16` | `results-torchray/cifar-10-gradient-vgg16` |
 | `results` | `vast-112/results-torchray` | `results-torchray` |
 | `metrics` | `vast-112/metrics-torchray` | `metrics-torchray` |
 
-The `_derisk/` prefix keeps test data out of the real archive so it can be
-deleted wholesale afterwards.
+`derisk` writes under `_derisk/` so test data can be dropped wholesale.
+
+`derisk-live` is the same 10,000-tiny-object shape but a **different** directory
+— so Drive's listing for it is still cold and the timing is comparable — and it
+writes to the **final** destination, so the bytes count as real migration
+progress rather than being thrown away. Safe, because it is a genuine corpus
+directory rather than synthetic data.
+
+## Tuning: the two caps that made the first run take 1h51m
+
+Measured on the droplet: 10,000 objects in **1h51m24s = 1.5 objects/sec**, which
+extrapolates to ~31 days for the 4.05M-object corpus. Neither bandwidth nor B2
+was the constraint. Two independent per-second caps were:
+
+| cap | value | whose |
+|---|---|---|
+| `--drive-pacer-min-sleep` | 100ms → 10 Drive req/sec, ignores `--tpslimit` | rclone's own default |
+| `--tpslimit` | 12 calls/sec total | set here, to avoid 403 storms |
+
+Each object needs roughly three calls: list its sample dir, GET from Drive, PUT
+to B2. Per-object round trip to B2 `us-east-005` measured at ~400ms, so latency
+also needs concurrency to hide — which those caps prevented.
+
+All four knobs are flags now, defaults unchanged, and the chosen tuning is
+echoed at startup so a logged run records what produced its timing:
+
+```bash
+./bin/jump-gdrive-to-b2.sh --preset derisk-live \
+    --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
+```
+
+Raising them risks Drive 403 rate-limit responses; rclone retries those, so the
+failure mode is slowdown rather than data loss.
 
 ## Google Drive is read-only
 

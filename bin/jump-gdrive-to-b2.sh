@@ -19,6 +19,8 @@
 #   source ~/b2-secrets/b2env
 #   ./bin/jump-gdrive-to-b2.sh --preset derisk    --dry-run
 #   ./bin/jump-gdrive-to-b2.sh --preset derisk
+#   ./bin/jump-gdrive-to-b2.sh --preset derisk-live \
+#       --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
 #   ./bin/jump-gdrive-to-b2.sh --preset results
 #   ./bin/jump-gdrive-to-b2.sh --preset metrics
 #   ./bin/jump-gdrive-to-b2.sh --src vast-112/results-torchray --dst results-torchray --per-dir
@@ -75,9 +77,20 @@ done
 # LOCAL layout -- which is also what leg 2 (source-local-to-b2.sh) writes.
 case "$PRESET" in
     "")       ;;
-    derisk)   # small, real subtree for the de-risk test: 10,000 tiny objects
+    derisk)   # small, real subtree for the de-risk test: 10,000 tiny objects.
+              # Lands under _derisk/ so it can be dropped wholesale.
               SRC="vast-112/results-torchray/cifar-10-grad_cam-vgg16"
               DST="_derisk/results-torchray/cifar-10-grad_cam-vgg16"
+              PER_DIR="" ;;
+    derisk-live)
+              # Same shape -- 10,000 tiny objects -- but a DIFFERENT dir, so
+              # Drive's listing for it is still cold and the timing is
+              # comparable to the first derisk run. Writes to the FINAL
+              # destination rather than _derisk/, so the bytes count as real
+              # migration progress instead of being thrown away. That is safe
+              # because it is a genuine corpus directory, not synthetic data.
+              SRC="vast-112/results-torchray/cifar-10-gradient-vgg16"
+              DST="results-torchray/cifar-10-gradient-vgg16"
               PER_DIR="" ;;
     results)  SRC="vast-112/results-torchray"
               DST="results-torchray"
@@ -85,7 +98,7 @@ case "$PRESET" in
     metrics)  SRC="vast-112/metrics-torchray"
               DST="metrics-torchray"
               PER_DIR="yes" ;;
-    *) echo "unknown preset: $PRESET (derisk|results|metrics)" >&2; exit 2 ;;
+    *) echo "unknown preset: $PRESET (derisk|derisk-live|results|metrics)" >&2; exit 2 ;;
 esac
 
 [ -n "$SRC" ] || { echo "ERROR: --src or --preset is required" >&2; usage; }
