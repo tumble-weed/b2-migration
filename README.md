@@ -75,6 +75,34 @@ in a subfolder of that anchored root.
 It is deliberately **not** a git submodule: rotating a key should be one commit
 in `b2-secrets`, with no pointer to bump here.
 
+## The source is required, and the Drive root is refused
+
+`gd:` is anchored at the **Drive root**, which holds ~200 unrelated folders —
+resumes, course downloads, Takeout. There is deliberately no default source, and
+`""`, `/`, `.` are refused outright, so no invocation can sweep the whole Drive.
+
+Measured Drive layout (2026-08-27):
+
+| Drive path | subdirs | status |
+|---|---|---|
+| `vast-112/results-torchray` | 601 | live — what `upload_bigfiles_other_` writes |
+| `results-torchray` | 393 | older partial copy; its uploader is commented out |
+| `vast-112/metrics-torchray` | 20 | live |
+| `metrics-torchray` | 0 | empty |
+| `results-with-detailed-info` | — | **not on Drive at all**, leg 2 only |
+
+Presets carry those paths and drop the `vast-112/` prefix, so B2 mirrors the
+*local* layout — the same paths leg 2 writes to.
+
+| preset | Drive | B2 |
+|---|---|---|
+| `derisk` | `vast-112/results-torchray/cifar-10-grad_cam-vgg16` | `_derisk/results-torchray/cifar-10-grad_cam-vgg16` |
+| `results` | `vast-112/results-torchray` | `results-torchray` |
+| `metrics` | `vast-112/metrics-torchray` | `metrics-torchray` |
+
+The `_derisk/` prefix keeps test data out of the real archive so it can be
+deleted wholesale afterwards.
+
 ## Google Drive is read-only
 
 Two independent guards:
@@ -92,8 +120,10 @@ Drive stays a reference copy.
 # leg 1, on the droplet — run under tmux, it takes hours
 tmux new -s jump
 source ~/b2-secrets/b2env
-./bin/jump-gdrive-to-b2.sh --dry-run       # see what it would do
-./bin/jump-gdrive-to-b2.sh
+./bin/jump-gdrive-to-b2.sh --preset derisk --dry-run   # small, real subtree
+./bin/jump-gdrive-to-b2.sh --preset derisk             # 10,000 tiny objects
+./bin/jump-gdrive-to-b2.sh --preset results            # the 601-dir corpus
+./bin/jump-gdrive-to-b2.sh --preset metrics
 
 # leg 2, on the corpus box, once leg 1 has finished
 source ~/b2-secrets/b2env
