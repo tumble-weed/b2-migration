@@ -150,6 +150,49 @@ flight — B2 has more objects than were downloaded. Re-run once leg 1 prints
 Leg 1 is per-directory and resumable — a `.done` marker per directory in
 `logs/jump/`, so a killed run picks up where it stopped.
 
+## Running both legs at once
+
+Leg 1 is bound by Drive **directory** queries, not bytes: the corpus is one
+directory per sample, 3,939,217 of them, and descending into all of them runs at
+roughly 4/sec — days. So leg 2 should not sit idle waiting for it. But leg 2
+must not re-send files leg 1 will fetch from Drive for free either.
+
+The cheap way to know what Drive has:
+
+```bash
+# on the droplet -- ~8 hours, resumable, negligible bytes
+./bin/list-gdrive-samples.sh
+#   -> manifests/gdrive_samples/..._samples.txt
+
+# on the corpus box -- seconds
+./bin/plan-local-gap.py \
+    --src /data/bigfiles/other/results-torchray \
+    --manifest manifests/gdrive_samples/vast-112_results-torchray_samples.txt \
+    --out manifests/local_gap.txt --summary
+
+# upload only the gap, while leg 1 is still running
+./bin/source-local-to-b2.sh \
+    --src /data/bigfiles/other/results-torchray \
+    --files-from manifests/local_gap.txt
+```
+
+Why depth 2 rather than a full listing: listing one level inside each method dir
+is **paged** (1,000 entries per call), measured at ~130 dirs/sec versus ~4/sec
+for descending. ~8 hours instead of ~11 days.
+
+**Accepted blind spot.** The manifest proves a sample *directory* exists on
+Drive, not that every file inside it does. 97.4% of sample dirs hold exactly one
+file, so dir-presence is file-presence for almost all of the corpus. The residue
+(103,062 dirs with 2+ files) is caught by a final full sweep once leg 1
+finishes — cheap by then, because B2 already holds nearly everything:
+
+```bash
+./bin/source-local-to-b2.sh --src /data/bigfiles/other/results-torchray
+```
+
+Symlinks are excluded from the gap list. All 212 sit at method-dir level and
+ride along on the plain `--links` sweep.
+
 ## Design notes
 
 - **No `--fast-list`.** rclone holds roughly 1 KB per object, so a whole-corpus
