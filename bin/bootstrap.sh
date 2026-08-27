@@ -54,9 +54,14 @@ chmod 600 "$SECRETS_DIR/b2env"
 # --- verify -----------------------------------------------------------------
 # shellcheck source=/dev/null
 source "$SECRETS_DIR/b2env"
-log "B2 account:"
-rclone about b2:"${B2_BUCKET:?B2_BUCKET not set in b2env}" || {
+# NOT `rclone about` -- B2 buckets do not implement it, so it fails even on a
+# perfectly good setup ("doesn't support about"). A shallow list proves the key
+# and bucket without needing quota support. An empty bucket lists nothing and
+# still exits 0, which is the expected state before the first upload.
+log "B2 -- listing b2:${B2_BUCKET:?B2_BUCKET not set in b2env}"
+rclone lsf --max-depth 1 b2:"$B2_BUCKET" >/dev/null || {
     log "FAILED to reach b2:$B2_BUCKET -- check the key and bucket name"; exit 1; }
+log "  ok"
 # Verify against a SMALL, known path. Do NOT list gd: itself -- that is the
 # Drive root, ~200 unrelated folders, and enumerating it takes many minutes.
 GD_PROBE="${GD_PROBE:-vast-112/results-torchray}"
