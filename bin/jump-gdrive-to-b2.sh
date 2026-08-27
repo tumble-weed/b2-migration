@@ -90,8 +90,11 @@ DST="${DST:-$SRC}"
 mkdir -p "$LOGDIR"
 log() { printf '[jump] %s\n' "$*" >&2; }
 
+# -P renders progress on the TERMINAL. Without it, --log-file swallows the stats
+# too and a long Drive enumeration looks like a dead prompt.
 RCLONE_ARGS=(
     --links
+    -P
     --transfers "$TRANSFERS" --checkers 8
     --buffer-size 4M
     --tpslimit 12 --tpslimit-burst 24
@@ -106,9 +109,13 @@ log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo
 [ -n "$DRY" ] && log "DRY RUN -- nothing will be written"
 
 if [ -z "$PER_DIR" ]; then
+    single_log="$LOGDIR/$(echo "$DST" | tr / _).log"
+    log "log         $single_log"
+    log "Drive enumeration is slow and prints nothing for a while. To watch:"
+    log "  tail -f $single_log"
     rclone copy "gd:$SRC" "b2:$B2_BUCKET/$DST" $DRY "${RCLONE_ARGS[@]}" \
-        --log-level INFO --log-file "$LOGDIR/$(echo "$DST" | tr / _).log"
-    log "done. log: $LOGDIR/$(echo "$DST" | tr / _).log"
+        --log-level INFO --log-file "$single_log"
+    log "done. log: $single_log"
     exit 0
 fi
 
