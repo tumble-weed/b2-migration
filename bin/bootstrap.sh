@@ -57,8 +57,13 @@ source "$SECRETS_DIR/b2env"
 log "B2 account:"
 rclone about b2:"${B2_BUCKET:?B2_BUCKET not set in b2env}" || {
     log "FAILED to reach b2:$B2_BUCKET -- check the key and bucket name"; exit 1; }
-log "gdrive (read-only token, anchored at root_folder_id):"
-rclone lsd gd:"${GD_SUBPATH:-}" | head -5
+# Verify against a SMALL, known path. Do NOT list gd: itself -- that is the
+# Drive root, ~200 unrelated folders, and enumerating it takes many minutes.
+GD_PROBE="${GD_PROBE:-vast-112/results-torchray}"
+log "gdrive (read-only token) -- probing gd:$GD_PROBE"
+rclone lsjson --stat gd:"$GD_PROBE" >/dev/null || {
+    log "FAILED to reach gd:$GD_PROBE -- check the token and GD_PROBE"; exit 1; }
+log "  ok"
 
 cat <<MSG
 
