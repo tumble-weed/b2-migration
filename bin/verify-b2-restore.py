@@ -98,8 +98,15 @@ def parse_args() -> Config:
                   skip_download=args.skip_download, seed=args.seed)
 
 
-def run(cmd: List[str]) -> subprocess.CompletedProcess:
+def run(cmd: List[str], stream: bool = False) -> subprocess.CompletedProcess:
+    """stream=True lets rclone write straight to the terminal.
+
+    Without it subprocess buffers everything until the process exits, so a
+    10,000-object download looks like a dead prompt for ten minutes.
+    """
     logger.info("$ %s", " ".join(cmd))
+    if stream:
+        return subprocess.run(cmd, text=True, check=False)
     return subprocess.run(cmd, text=True, capture_output=True, check=False)
 
 
@@ -123,11 +130,10 @@ def download(cfg: Config) -> float:
            "--transfers", str(cfg.transfers), "--checkers", "8",
            "--buffer-size", "4M",
            "--retries", "3", "--low-level-retries", "20",
-           "--stats", "30s", "--stats-one-line", "--stats-log-level", "NOTICE"]
+           "-P", "--stats", "30s", "--stats-log-level", "NOTICE"]
     started = time.monotonic()
-    proc = run(cmd)
+    proc = run(cmd, stream=True)
     elapsed = time.monotonic() - started
-    sys.stderr.write(proc.stderr)
     if proc.returncode != 0:
         raise SystemExit(f"rclone copy failed with exit {proc.returncode}")
     return elapsed
