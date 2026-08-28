@@ -228,6 +228,12 @@ def main() -> None:
     cfg.dest.mkdir(parents=True, exist_ok=True)
     root = cfg.dest / cfg.prefix
 
+    # A resumed download only transfers what is missing, but the rate below
+    # divides the TOTAL file count by that short elapsed time -- which would
+    # report a wildly inflated objects/sec. Detect it rather than lie.
+    preexisting = sum(1 for p in root.rglob("*")
+                      if p.is_file() and not p.is_symlink()) if root.exists() else 0
+
     elapsed = 0.0
     if cfg.skip_download:
         logger.info("--skip-download: reusing %s", root)
@@ -248,7 +254,12 @@ def main() -> None:
     print(f"restore root      {root}")
     print(f"files restored    {files}")
     print(f"bytes restored    {total_bytes / 1e6:.1f} MB")
-    if elapsed > 0:
+    if elapsed > 0 and preexisting:
+        print(f"download time     {elapsed / 60:.1f} min  ({elapsed:.0f} s)")
+        print(f"RESTORE RATE      NOT MEASURED -- {preexisting:,} files were already")
+        print( "                  in the dest, so this was a resume. For a real")
+        print( "                  rate: rm -rf the dest and run again.")
+    elif elapsed > 0:
         print(f"download time     {elapsed / 60:.1f} min  ({elapsed:.0f} s)")
         print(f"RESTORE RATE      {files / elapsed:.1f} objects/sec, "
               f"{total_bytes / 1e6 / elapsed:.2f} MB/sec")
