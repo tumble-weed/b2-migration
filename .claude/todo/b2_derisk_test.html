@@ -510,7 +510,13 @@ directory-bound workload. The honest range is one day to eleven, still unmeasure
 <p>Consequence: this box must not idle through leg 1, and equally must not re-send files leg 1
 will fetch from Drive for free.</p>
 
-<h3>Design: scope leg 2 by a depth-2 Drive manifest</h3>
+<h3>Design: scope leg 2 by a depth-2 Drive manifest
+<span class="tag open">BUILT, PROBABLY UNNEEDED &mdash; see &sect;11</span></h3>
+<p class="mut">The measurements in &sect;11 make the droplet route ~14 days against ~44 hours
+direct from the corpus box. If the droplet is dropped there is only one leg, and this whole
+manifest / gap / partition design becomes unnecessary. The code is committed and works; it is
+simply not on the critical path any more. Kept because the droplet is still running as a
+free background trickle.</p>
 <p>User's idea, in its exact form. Rather than a per-file listing (which needs the same 3.94M
 queries) or a timestamp watermark (which needs the same listing anyway), list Drive at
 <b>depth 2</b> &mdash; the <code>&lt;method&gt;/&lt;sample&gt;/</code> dirs. That is a
@@ -586,7 +592,96 @@ Running the full 601-dir list would pull both, including 19 GB you deliberately 
 <p class="mut">Nothing in §10 has been started.</p>
 
 <h2>11 &nbsp;Results / Postmortem</h2>
-<p class="mut">To be filled after execution.</p>
+<p class="sub">Measured 2026-08-27/28 on the real corpus, real Drive, real bucket.</p>
+
+<h3>Key results</h3>
+<p><b>The corpus is 3,939,217 directories — one per sample.</b> Everything follows from that.
+Google Drive has no recursive listing, so rclone must issue a query per directory. Leg 1 is
+bound by Drive API calls, not by bytes, not by bandwidth, and not by B2.</p>
+
+<h4>Three droplet runs, each a cold 10,000-object directory</h4>
+<table>
+<tr><th>#</th><th>change</th><th class="n">elapsed</th><th class="n">obj/sec</th><th class="n">gain</th></tr>
+<tr><td>1</td><td>rclone's shared client_id, <code>--tpslimit 12</code>, pacer 100ms</td>
+    <td class="n">1h51m24s</td><td class="n">1.50</td><td class="n">&mdash;</td></tr>
+<tr><td>2</td><td>caps raised: pacer 10ms, tpslimit 100, transfers 32</td>
+    <td class="n">1h00m36s</td><td class="n">2.73</td><td class="n">1.8&times;</td></tr>
+<tr><td>3</td><td>+ the user's own OAuth client_id</td>
+    <td class="n">0h49m52s</td><td class="n">3.34</td><td class="n">1.22&times;</td></tr>
+</table>
+<p>Effective API rate at run 3: 40,000 calls / 2,992 s = <b>13.4 calls/sec</b>. Still low teens
+after removing two separate ceilings, so the binding constraint is something per-user on Drive's
+side that we cannot tune. Diminishing returns across three attempts; no fourth knob identified.</p>
+<pre><code>4,054,466 objects / 3.34 obj/sec  =  14.0 DAYS</code></pre>
+
+<h4>The alternative, measured the same way</h4>
+<pre><code>this box -> B2, 2,000 real corpus objects, --transfers 64
+  2,000 objects in 78 s  =  25.6 obj/sec
+  4,054,466 / 25.6       =  43.9 hours
+
+per-object round trip to B2 us-east-005, concurrency 1: ~400 ms
+</code></pre>
+<table>
+<tr><th>route</th><th class="n">rate</th><th class="n">full corpus</th><th class="n">cost</th></tr>
+<tr><td>droplet, via Drive</td><td class="n">3.3 obj/s</td><td class="n">14.0 days</td><td class="n">$0</td></tr>
+<tr><td>direct from the corpus box</td><td class="n">25.6 obj/s</td><td class="n">43.9 hours</td><td class="n">~$15.85</td></tr>
+</table>
+<p><b>7.7&times; faster for sixteen dollars</b>, and it removes the manifest, the gap planning, the
+partition and the reconciliation sweep &mdash; one leg, one command.</p>
+
+<h3>Insights worth keeping</h3>
+<ul>
+<li><b>Object count, not byte count, sets the cost of everything here.</b> 88.7% of objects carry
+2.7% of the bytes. Every estimate that started from GB was wrong.</li>
+<li><b>rclone's default Drive client_id is shared by all rclone users</b> and carries Google's
+10 transactions/sec quota. Worth 1.22&times; here, but it is also
+<b>being retired during 2026</b> &mdash; which will break
+<code>upload_instance_to_gdrive</code> and <code>upload_bigfiles_other_</code> on any remote
+without its own client. Separate deadline, unrelated to B2.</li>
+<li><b>B2 API transactions are free.</b> The 4M-object count costs nothing to store or list; it
+costs time.</li>
+<li><b>No locking exists</b> between two legs writing the same bucket. Overlap is not corrupting
+&mdash; object PUTs are atomic and both legs write identical bytes &mdash; but the loser becomes
+a superseded version billed until the 1-day lifecycle rule purges it. Avoid overlap by
+partitioning the work, not by hoping.</li>
+</ul>
+
+<h3>Difficulties, and how they were resolved</h3>
+<table>
+<tr><th>problem</th><th>resolution</th></tr>
+<tr><td>Claude's jump script defaulted to the whole Drive root (~200 unrelated folders)</td>
+    <td>caught by the user before any run; source is now required and <code>/</code> refused</td></tr>
+<tr><td>b2-secrets sat in an rclone-synced tree; the B2 key and Drive token reached Drive</td>
+    <td>excluded in <code>vast-utils</code> <code>37d5c90</code>, deleted from Drive by hand.
+    Rotation declined and closed.</td></tr>
+<tr><td>a dead <code>GD_ROOT=&lt;placeholder&gt;</code> line made <code>source b2env</code> a bash
+    syntax error, silently leaving later variables unset</td>
+    <td>removed; <code>bash -n b2env</code> is now part of the check</td></tr>
+<tr><td>bootstrap used <code>rclone about</code> (B2 does not implement it) and probed the Drive
+    root (10+ minutes)</td>
+    <td>shallow <code>lsf</code> against the bucket and a single known Drive path; both now
+    seconds</td></tr>
+<tr><td><code>verify-b2-restore.py</code> died on <code>ModuleNotFoundError: torch</code></td>
+    <td>lzma decompression is the mandatory integrity check (xz carries a CRC); unpickling is
+    best-effort and skipped when torch is absent</td></tr>
+<tr><td>Claude concluded &quot;no client_id&quot; from a grep that filtered out
+    <code>client_id</code> to avoid printing secrets</td>
+    <td>the user challenged it; a proper parse showed the remote had its own client all along.
+    <b>Pattern: never infer absence from a filtered search.</b></td></tr>
+</table>
+
+<h3>Decision</h3>
+<p><span class="tag decided">2026-08-28</span> Start the droplet copy as a free background
+trickle, and run the corpus box in parallel. To avoid overlap without any manifest, the corpus
+box takes the directories Drive provably does not have:
+<span class="fileref">manifests/local_only_dirs.txt</span> &mdash; 13 dirs, ~59,900 files,
+37.2 GB, essentially the whole integrated_gradients family plus layercam_paper.</p>
+<pre><code>./bin/source-local-to-b2.sh \
+    --src /data/bigfiles/other/results-torchray \
+    --dirs-from manifests/local_only_dirs.txt</code></pre>
+<p>Already archived from the two live droplet runs:
+<code>results-torchray/cifar-10-gradient-vgg16</code> and
+<code>results-torchray/cifar-10-guided_backprop-vgg16</code>, ~86 MB, 20,000 objects.</p>
 
 </body>
 </html>
