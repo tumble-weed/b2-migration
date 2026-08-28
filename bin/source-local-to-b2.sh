@@ -20,6 +20,7 @@ set -euo pipefail
 SRC=""
 DRY=""
 FILES_FROM=""
+DIRS_FROM=""
 TRANSFERS=8
 LOGDIR="${LOGDIR:-$PWD/logs/source}"
 
@@ -27,6 +28,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --src)        SRC="$2"; shift ;;
         --files-from) FILES_FROM="$2"; shift ;;
+        --dirs-from)  DIRS_FROM="$2"; shift ;;
         --dry-run)    DRY="--dry-run" ;;
         --transfers) TRANSFERS="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -55,6 +57,36 @@ printf '[source] %s -> b2:%s/%s\n' "$SRC" "$B2_BUCKET" "$name" >&2
 # --links records each symlink as a .rclonelink file instead of following it.
 # The corpus symlinks are relative and point at a sibling tree, so both trees
 # must be uploaded and later restored under the same parent.
+# --dirs-from uploads a named subset of top-level dirs, one rclone call each
+# with a .done marker so a killed run resumes. Use it to pick work the other
+# leg provably cannot duplicate -- e.g. manifests/local_only_dirs.txt, the dirs
+# Google Drive does not have at all.
+if [ -n "$DIRS_FROM" ]; then
+    [ -s "$DIRS_FROM" ] || { echo "--dirs-from missing or empty: $DIRS_FROM" >&2; exit 2; }
+    mapfile -t DIRS < "$DIRS_FROM"
+    printf '[source] %s dirs from %s\n' "${#DIRS[@]}" "$DIRS_FROM" >&2
+    for d in "${DIRS[@]}"; do
+        [ -n "$d" ] || continue
+        [ -d "$SRC/$d" ] || { printf '[source] SKIP (not local): %s\n' "$d" >&2; continue; }
+        marker="$LOGDIR/${name}_${d//\//_}.done"
+        if [ -f "$marker" ]; then
+            printf '[source] SKIP (done): %s\n' "$d" >&2
+            continue
+        fi
+        printf '[source] === %s\n' "$d" >&2
+        rclone copy "$SRC/$d" "b2:$B2_BUCKET/$name/$d" \
+            $DRY "${FF[@]}" --links -P \
+            --transfers "$TRANSFERS" --checkers 8 \
+            --buffer-size 4M \
+            --retries 3 --low-level-retries 20 \
+            --stats 30s \
+            --log-level INFO --log-file "$LOGDIR/${name}_${d//\//_}.log"
+        [ -z "$DRY" ] && touch "$marker"
+    done
+    printf '[source] done. logs in %s\n' "$LOGDIR" >&2
+    exit 0
+fi
+
 rclone copy "$SRC" "b2:$B2_BUCKET/$name" \
     $DRY \
     "${FF[@]}" \

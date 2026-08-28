@@ -8,5 +8,7 @@ rclone.conf
 # generated artifacts
 logs/
 manifests/*.tsv
+manifests/gdrive_samples/
 !manifests/.gitkeep
+!manifests/local_only_dirs.txt
 scratch/
