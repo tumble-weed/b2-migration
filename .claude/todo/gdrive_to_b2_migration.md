@@ -3,7 +3,9 @@
 **Design canvas:** `coding-practice/b2-migration/b2_migration.drawio`
 **De-risk test:** `.claude/todo/b2_derisk_test.html` — the small paid experiment
 that has to pass before this migration runs. Read it first.
-**Status:** design converged; not yet executed.
+**Status:** SUPERSEDED 2026-08-28. The architecture below was written before the
+corpus was measured and is kept for the reasoning trail only. Current plan and
+all measurements: `b2_derisk_test.html`.
 
 ## Scope (important)
 This is **effort #2 only**: move results from Google Drive → B2 for backup.
@@ -29,6 +31,30 @@ included) — finish #1 first for a clean B2.
   tiny month and confirm the first AUTO-charge clears before moving TBs.
 - No prepay escape: B2 is usage-billed; gift codes are for Computer Backup,
   not B2.
+
+## Migration architecture — SUPERSEDED 2026-08-28
+
+> **This section is obsolete. See `b2_derisk_test.html` §9d and §11.**
+>
+> It was written before the corpus was measured. Three facts overturned it:
+>
+> 1. The corpus is **3,939,217 directories**, one per sample, and Google Drive
+>    has no recursive listing. The gdrive leg is bound by directory queries, not
+>    bytes — measured at 3.3 objects/sec, i.e. **~14 days**.
+> 2. Direct from the corpus box to B2 measured **25.6 objects/sec = ~44 hours**,
+>    for about $16 of vast bandwidth. 7.7× faster.
+> 3. The hand-built `delta.txt` below is unnecessary. Running the corpus box
+>    against a B2 that already holds most files lets rclone compute the delta
+>    itself; and where the two legs must not overlap, they walk one committed
+>    directory list from opposite ends (`--reverse`).
+>
+> Also wrong below: Hetzner/VM1 was never used — the jump host is an existing
+> DigitalOcean droplet in Bangalore — and the "Class A = $4.50/million ops"
+> pricing was corrected earlier in this file.
+>
+> Kept for the reasoning trail, not as instructions.
+
+### Original text
 
 ## Migration architecture — two parallel streams into B2
 gdrive→B2 is NOT server-side (cross-provider); bytes route through a box.

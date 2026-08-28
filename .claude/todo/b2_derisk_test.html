@@ -579,17 +579,25 @@ Drive-only, 2 dirs:
 Running the full 601-dir list would pull both, including 19 GB you deliberately deleted.</p>
 
 <h2>10 &nbsp;Order of execution</h2>
-<pre><code>[x] §6 setup: bucket + lifecycle rule + key + creds   (2026-08-26)
-[ ] set B2 caps &amp; alerts
-[ ] build big.txt (top-50) from the census
-[ ] legs 1-4  (uploads)      -> record the table
-[ ] legs 5-8  (downloads)    -> record the table
-[ ] behaviour checks         -> pass/fail
-[ ] cost accounting          -> bytes x price table, cross-check Caps & Alerts
-[ ] write §11 Results / Postmortem
-[ ] only then: decide on the jump host and the real backfill
+<p class="mut">Rewritten 2026-08-28. The original 8-leg timed-matrix plan was overtaken by
+events: the droplet runs in &sect;11 answered the speed question directly, so the matrix was never
+built and is not worth building now.</p>
+<pre><code>[x] setup: bucket + lifecycle rule + key + creds        2026-08-26
+[x] derisk upload via droplet, 10,000 objects           2026-08-27
+[x] three timed droplet runs -> §11                     2026-08-27/28
+[x] direct-from-corpus-box rate measured, 25.6 obj/s    2026-08-28
+[x] concurrent-legs tooling built (manifest, gap, dirs) 2026-08-28
+[ ] verify restore on a FRESH vast box
+      ./bin/bootstrap.sh --no-gdrive
+      ./bin/verify-b2-restore.py --preset derisk --transfers 64
+      -> gives correctness AND restore rate in one report
+[ ] set B2 caps & alerts   (storage 800 GB, rest uncapped, alert 80%)
+[ ] start both legs, meeting in the middle:
+      droplet     --dirs-from manifests/all_dirs.txt
+      corpus box  --dirs-from manifests/all_dirs.txt --reverse
+[ ] final full sweep from the corpus box once leg 1 stops
+[ ] decide the two Drive-only dirs (deleted_jul5, rise-vgg16_bkup)
 </code></pre>
-<p class="mut">Nothing in §10 has been started.</p>
 
 <h2>11 &nbsp;Results / Postmortem</h2>
 <p class="sub">Measured 2026-08-27/28 on the real corpus, real Drive, real bucket.</p>
@@ -606,9 +614,25 @@ bound by Drive API calls, not by bytes, not by bandwidth, and not by B2.</p>
     <td class="n">1h51m24s</td><td class="n">1.50</td><td class="n">&mdash;</td></tr>
 <tr><td>2</td><td>caps raised: pacer 10ms, tpslimit 100, transfers 32</td>
     <td class="n">1h00m36s</td><td class="n">2.73</td><td class="n">1.8&times;</td></tr>
-<tr><td>3</td><td>+ the user's own OAuth client_id</td>
+<tr><td>3</td><td>intended: + the user's own OAuth client_id.
+    <b>INVALID &mdash; see below</b></td>
     <td class="n">0h49m52s</td><td class="n">3.34</td><td class="n">1.22&times;</td></tr>
 </table>
+<div class="card">
+<b>Run 3 did not test what it claimed.</b> The token in <code>b2env</code> turned out to be
+minted under rclone's <i>shared</i> client, not the <code>client_id</code> sitting beside it
+&mdash; a mismatched pair. It stayed hidden because a fresh access token needs no refresh for
+about an hour, and run 3 finished inside that window; the failure only surfaced later as
+<code>unauthorized_client</code> on a fresh box.
+<p>Cause: the authorize command ran in a shell where <code>b2env</code> had not been sourced, so
+<code>$RCLONE_CONFIG_GD_CLIENT_ID</code> expanded to empty and rclone silently fell back to its
+own client. Guarded now by <span class="fileref">bin/authorize-drive.sh</span>, which refuses to
+run with the variables unset.</p>
+<p><b>So the 22% is run-to-run variance or a different directory, not the client change, and the
+own-client experiment has never actually been run.</b> User's call 2026-08-28: do not re-run it;
+proceed on the direct route. The free route may therefore be better than these numbers suggest
+&mdash; unknown, and deliberately left unknown.</p>
+</div>
 <p>Effective API rate at run 3: 40,000 calls / 2,992 s = <b>13.4 calls/sec</b>. Still low teens
 after removing two separate ceilings, so the binding constraint is something per-user on Drive's
 side that we cannot tune. Diminishing returns across three attempts; no fourth knob identified.</p>
