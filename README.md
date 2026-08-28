@@ -28,6 +28,15 @@ cd b2-migration
 source ~/b2-secrets/b2env
 ```
 
+On a box that only restores from B2 — a verify instance — skip the Drive check
+entirely; it has no business touching Drive:
+
+```bash
+./bin/bootstrap.sh --no-gdrive
+```
+
+Works as root without `sudo` installed, which is the usual vast container.
+
 `bootstrap.sh` uses GitHub's **device-code** login: you type a short code on your
 own machine. Never copy a long-lived PAT onto a throwaway box.
 

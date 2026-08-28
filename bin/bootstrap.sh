@@ -17,25 +17,36 @@ esac
 
 log() { printf '[bootstrap] %s\n' "$*" >&2; }
 
+# Many vast containers run as root with no `sudo` installed, so `| sudo bash`
+# dies with "sudo: command not found". Use sudo only when it exists and we are
+# not already root.
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || { log "not root and no sudo -- cannot install packages"; exit 1; }
+    SUDO="sudo"
+fi
+
 # --- rclone -----------------------------------------------------------------
 if ! command -v rclone >/dev/null 2>&1; then
     log "installing rclone"
-    curl -fsSL https://rclone.org/install.sh | sudo bash
+    command -v curl >/dev/null 2>&1 || { log "curl missing"; $SUDO apt-get update -qq && $SUDO apt-get install -y curl; }
+    curl -fsSL https://rclone.org/install.sh | $SUDO bash
 fi
 log "rclone $(rclone version | head -1)"
 
 # --- gh ---------------------------------------------------------------------
 if ! command -v gh >/dev/null 2>&1; then
     log "installing gh"
-    (type -p wget >/dev/null || sudo apt-get install -y wget)
-    sudo mkdir -p -m 755 /etc/apt/keyrings
+    (type -p wget >/dev/null || { $SUDO apt-get update -qq; $SUDO apt-get install -y wget; })
+    $SUDO mkdir -p -m 755 /etc/apt/keyrings
     wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
-    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        | $SUDO tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+    $SUDO chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-    sudo apt-get update && sudo apt-get install -y gh
+        | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    $SUDO apt-get update -qq && $SUDO apt-get install -y gh
 fi
+command -v gh >/dev/null 2>&1 || { log "gh install failed -- install it manually, then re-run"; exit 1; }
 
 # Device-code flow: you type a short code on your own machine.
 # Do NOT copy a long-lived PAT onto a throwaway box.
