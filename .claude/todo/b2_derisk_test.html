@@ -597,6 +597,13 @@ built and is not worth building now.</p>
       corpus box  --dirs-from manifests/all_dirs.txt --reverse
 [ ] final full sweep from the corpus box once leg 1 stops
 [ ] decide the two Drive-only dirs (deleted_jul5, rise-vgg16_bkup)
+[ ] AFTER everything is on B2: test symlink recreation on a fresh box
+      restore a method dir that HAS symlinks, plus
+      results-with-detailed-info, under the same parent
+      -> every .rclonelink back as a real relative symlink that resolves
+      (the derisk payload had none, so this is still unproven)
+[ ] keep the gdrive copy until that passes -- retention agreed to
+      2026-10-28, two months from the decision
 </code></pre>
 
 <h2>11 &nbsp;Results / Postmortem</h2>
@@ -679,11 +686,18 @@ corpus is another ~44 hours on top of a restore.</p>
 
 <h3>What the de-risk test did NOT cover</h3>
 <ul>
-<li><b>Symlink round-trip: untested.</b> The report says <code>symlinks 0 found</code> because
+<li><span class="tag open">DEFERRED &mdash; TODO after the migration</span>
+<b>Symlink round-trip: untested.</b> The report says <code>symlinks 0 found</code> because
 all 212 live at <i>method-dir</i> level and the payload is a directory <i>inside</i> one method
 dir. So <code>.rclonelink</code> &rarr; real relative symlink has still never been exercised
 end to end. It matters: 211 of them point at
-<code>results-with-detailed-info</code>, which is on Drive nowhere.</li>
+<code>results-with-detailed-info</code>, which is on Drive nowhere.
+<br><b>User's call 2026-08-28: accept the gap.</b> The Google Drive copy is being kept for
+<b>two more months</b> as the safety net, so a broken round-trip would surface while a source
+of truth still exists. <b>TODO once everything is on B2:</b> on a fresh box, restore a method
+dir that actually contains symlinks <i>together with</i>
+<code>results-with-detailed-info</code> under the same parent, and confirm each
+<code>.rclonelink</code> comes back as a real symlink whose relative target resolves.</li>
 <li><b>Unpickling: skipped by design.</b> <code>0/25</code>, because a bare verify box has no
 torch. Full lzma decompression passed on all 25, and xz carries a CRC over the stream, so
 corruption would have shown.</li>
