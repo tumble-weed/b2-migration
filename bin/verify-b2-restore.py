@@ -27,6 +27,7 @@ import os
 import pickle
 import random
 import subprocess
+import time
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,8 @@ logger = logging.getLogger("verify")
 # invocation on a box you have never logged into before.
 PRESETS: Dict[str, str] = {
     "derisk": "_derisk/results-torchray/cifar-10-grad_cam-vgg16",
+    "derisk-live": "results-torchray/cifar-10-gradient-vgg16",
+    "derisk-live2": "results-torchray/cifar-10-guided_backprop-vgg16",
     "results": "results-torchray",
     "metrics": "metrics-torchray",
     "detailed": "results-with-detailed-info",
@@ -112,7 +115,8 @@ def guard_dest(dest: Path) -> None:
             )
 
 
-def download(cfg: Config) -> None:
+def download(cfg: Config) -> float:
+    """Returns wall-clock seconds, so the restore rate can be reported."""
     remote = f"b2:{cfg.bucket}/{cfg.prefix}"
     cmd = ["rclone", "copy", remote, str(cfg.dest / cfg.prefix),
            "--links",
@@ -120,10 +124,13 @@ def download(cfg: Config) -> None:
            "--buffer-size", "4M",
            "--retries", "3", "--low-level-retries", "20",
            "--stats", "30s", "--stats-one-line", "--stats-log-level", "NOTICE"]
+    started = time.monotonic()
     proc = run(cmd)
+    elapsed = time.monotonic() - started
     sys.stderr.write(proc.stderr)
     if proc.returncode != 0:
         raise SystemExit(f"rclone copy failed with exit {proc.returncode}")
+    return elapsed
 
 
 def check_checksums(cfg: Config) -> Tuple[bool, str]:
@@ -215,12 +222,15 @@ def main() -> None:
     cfg.dest.mkdir(parents=True, exist_ok=True)
     root = cfg.dest / cfg.prefix
 
+    elapsed = 0.0
     if cfg.skip_download:
         logger.info("--skip-download: reusing %s", root)
     else:
-        download(cfg)
+        elapsed = download(cfg)
 
     files = sum(1 for p in root.rglob("*") if p.is_file() and not p.is_symlink())
+    total_bytes = sum(p.stat().st_size for p in root.rglob("*")
+                      if p.is_file() and not p.is_symlink())
     logger.info("restored files: %d", files)
 
     ck_ok, ck_tail = check_checksums(cfg)
@@ -231,6 +241,15 @@ def main() -> None:
     print("\n================ VERIFY REPORT ================")
     print(f"restore root      {root}")
     print(f"files restored    {files}")
+    print(f"bytes restored    {total_bytes / 1e6:.1f} MB")
+    if elapsed > 0:
+        print(f"download time     {elapsed / 60:.1f} min  ({elapsed:.0f} s)")
+        print(f"RESTORE RATE      {files / elapsed:.1f} objects/sec, "
+              f"{total_bytes / 1e6 / elapsed:.2f} MB/sec")
+        print(f"  -> 4,054,466 objects would take "
+              f"{4054466 / (files / elapsed) / 3600:.1f} hours")
+    else:
+        print("download time     skipped (--skip-download)")
     print(f"checksum compare  {'PASS' if ck_ok else 'FAIL'}")
     for line in ck_tail.splitlines():
         print(f"    {line}")

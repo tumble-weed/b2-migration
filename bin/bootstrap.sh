@@ -9,6 +9,12 @@ set -euo pipefail
 SECRETS_REPO="${B2_SECRETS_REPO:-tumble-weed/b2-secrets}"
 SECRETS_DIR="${B2_SECRETS_DIR:-$HOME/b2-secrets}"
 
+case "${1:-}" in
+    --no-gdrive) SKIP_GDRIVE=1 ;;
+    "")          ;;
+    *) echo "usage: $0 [--no-gdrive]" >&2; exit 2 ;;
+esac
+
 log() { printf '[bootstrap] %s\n' "$*" >&2; }
 
 # --- rclone -----------------------------------------------------------------
@@ -62,13 +68,26 @@ log "B2 -- listing b2:${B2_BUCKET:?B2_BUCKET not set in b2env}"
 rclone lsf --max-depth 1 b2:"$B2_BUCKET" >/dev/null || {
     log "FAILED to reach b2:$B2_BUCKET -- check the key and bucket name"; exit 1; }
 log "  ok"
-# Verify against a SMALL, known path. Do NOT list gd: itself -- that is the
-# Drive root, ~200 unrelated folders, and enumerating it takes many minutes.
-GD_PROBE="${GD_PROBE:-vast-112/results-torchray}"
-log "gdrive (read-only token) -- probing gd:$GD_PROBE"
-rclone lsjson --stat gd:"$GD_PROBE" >/dev/null || {
-    log "FAILED to reach gd:$GD_PROBE -- check the token and GD_PROBE"; exit 1; }
-log "  ok"
+# Drive is only needed on the jump host. A verify box restores FROM B2 and never
+# touches Drive, so a Drive failure there must not abort setup.
+#   ./bin/bootstrap.sh --no-gdrive      skip the probe entirely
+if [ -n "${SKIP_GDRIVE:-}" ]; then
+    log "gdrive check skipped (--no-gdrive)"
+else
+    # Verify against a SMALL, known path. Do NOT list gd: itself -- that is the
+    # Drive root, ~200 unrelated folders, and enumerating it takes minutes.
+    GD_PROBE="${GD_PROBE:-vast-112/results-torchray}"
+    log "gdrive (read-only token) -- probing gd:$GD_PROBE"
+    if rclone lsjson --stat gd:"$GD_PROBE" >/dev/null 2>&1; then
+        log "  ok"
+    else
+        log "  WARNING: could not reach gd:$GD_PROBE"
+        log "  Only the jump host needs Drive. If this is a verify or upload box,"
+        log "  ignore it, or re-run with --no-gdrive."
+        log "  If this IS the jump host, the usual cause is a token minted under a"
+        log "  different client_id than the one in b2env -- see bin/authorize-drive.sh"
+    fi
+fi
 
 cat <<MSG
 
