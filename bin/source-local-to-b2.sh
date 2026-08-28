@@ -21,6 +21,7 @@ SRC=""
 DRY=""
 FILES_FROM=""
 DIRS_FROM=""
+REVERSE=""
 TRANSFERS=8
 LOGDIR="${LOGDIR:-$PWD/logs/source}"
 
@@ -29,6 +30,7 @@ while [ $# -gt 0 ]; do
         --src)        SRC="$2"; shift ;;
         --files-from) FILES_FROM="$2"; shift ;;
         --dirs-from)  DIRS_FROM="$2"; shift ;;
+        --reverse)    REVERSE="yes" ;;
         --dry-run)    DRY="--dry-run" ;;
         --transfers) TRANSFERS="$2"; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -63,8 +65,13 @@ printf '[source] %s -> b2:%s/%s\n' "$SRC" "$B2_BUCKET" "$name" >&2
 # Google Drive does not have at all.
 if [ -n "$DIRS_FROM" ]; then
     [ -s "$DIRS_FROM" ] || { echo "--dirs-from missing or empty: $DIRS_FROM" >&2; exit 2; }
-    mapfile -t DIRS < "$DIRS_FROM"
-    printf '[source] %s dirs from %s\n' "${#DIRS[@]}" "$DIRS_FROM" >&2
+    if [ -n "$REVERSE" ]; then
+        mapfile -t DIRS < <(tac "$DIRS_FROM")
+    else
+        mapfile -t DIRS < "$DIRS_FROM"
+    fi
+    printf '[source] %s dirs from %s%s\n' "${#DIRS[@]}" "$DIRS_FROM" \
+        "$([ -n "$REVERSE" ] && echo ' (REVERSED)')" >&2
     for d in "${DIRS[@]}"; do
         [ -n "$d" ] || continue
         [ -d "$SRC/$d" ] || { printf '[source] SKIP (not local): %s\n' "$d" >&2; continue; }

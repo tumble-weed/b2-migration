@@ -11,4 +11,5 @@ manifests/*.tsv
 manifests/gdrive_samples/
 !manifests/.gitkeep
 !manifests/local_only_dirs.txt
+!manifests/all_dirs.txt
 scratch/

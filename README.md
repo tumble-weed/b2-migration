@@ -225,6 +225,38 @@ finishes — cheap by then, because B2 already holds nearly everything:
 Symlinks are excluded from the gap list. All 212 sit at method-dir level and
 ride along on the plain `--links` sweep.
 
+## Both legs at once: meet in the middle
+
+The corpus box is ~7.7x faster than the droplet (25.6 vs 3.3 objects/sec), so it
+must take the bulk. Giving it only the dirs Drive lacks would finish in under an
+hour and then idle for two weeks — exactly backwards.
+
+Instead both legs walk the **same** 613-dir list from opposite ends:
+
+```bash
+# droplet, A -> Z
+./bin/jump-gdrive-to-b2.sh --preset results \
+    --dirs-from manifests/all_dirs.txt \
+    --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
+
+# corpus box, Z -> A
+./bin/source-local-to-b2.sh \
+    --src /data/bigfiles/other/results-torchray \
+    --dirs-from manifests/all_dirs.txt --reverse --transfers 64
+```
+
+They meet wherever their speeds put them — the fast leg naturally covers ~90%,
+with no coordination, no manifest, and no partition to compute. Overlap is one
+directory at the meeting point.
+
+Safe because there is **no locking anywhere**, and none is needed: B2 object PUTs
+are atomic and both legs write identical bytes. A duplicated object just leaves a
+superseded version, purged by the 1-day lifecycle rule. The cost of a collision
+is wasted bandwidth, never a bad file.
+
+`manifests/local_only_dirs.txt` (13 dirs Drive does not have at all) is still
+committed, as the one slice the droplet provably cannot supply.
+
 ## Design notes
 
 - **No `--fast-list`.** rclone holds roughly 1 KB per object, so a whole-corpus

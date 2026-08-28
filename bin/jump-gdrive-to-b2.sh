@@ -38,6 +38,7 @@ DST=""
 DRY=""
 PER_DIR=""
 DIRS_FROM=""
+REVERSE=""
 TRANSFERS=16
 CHECKERS=8
 TPSLIMIT=12
@@ -60,6 +61,7 @@ while [ $# -gt 0 ]; do
         --dry-run)    DRY="--dry-run" ;;
         --per-dir)    PER_DIR="yes" ;;
         --dirs-from)  DIRS_FROM="$2"; shift ;;
+        --reverse)    REVERSE="yes" ;;
         --transfers)  TRANSFERS="$2"; shift ;;
         --checkers)   CHECKERS="$2"; shift ;;
         --tpslimit)   TPSLIMIT="$2"; shift ;;
@@ -147,7 +149,11 @@ fi
 # Deliberately NOT --fast-list: rclone holds ~1 KB per object, so a whole-corpus
 # listing wants GBs of RAM on a 1 GiB droplet, and B2 charges $0 for list calls.
 if [ -n "$DIRS_FROM" ]; then
-    mapfile -t DIRS < "$DIRS_FROM"
+    if [ -n "$REVERSE" ]; then
+        mapfile -t DIRS < <(tac "$DIRS_FROM")
+    else
+        mapfile -t DIRS < "$DIRS_FROM"
+    fi
 else
     log "listing dirs under gd:$SRC (slow on Drive -- not a hang)"
     mapfile -t DIRS < <(rclone lsf --dirs-only --format p "gd:$SRC" | sed 's:/$::')
