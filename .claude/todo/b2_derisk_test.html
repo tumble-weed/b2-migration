@@ -653,6 +653,44 @@ per-object round trip to B2 us-east-005, concurrency 1: ~400 ms
 <p><b>7.7&times; faster for sixteen dollars</b>, and it removes the manifest, the gap planning, the
 partition and the reconciliation sweep &mdash; one leg, one command.</p>
 
+<h3>Restore verified on a fresh vast box <span class="tag decided">PASS 2026-08-28</span></h3>
+<p>A box that had never seen the data: cloned the repo, <code>bootstrap.sh --no-gdrive</code>,
+restored <code>_derisk/results-torchray/cifar-10-grad_cam-vgg16</code> from B2.</p>
+<pre><code>files restored    10,000
+bytes restored    19.5 MB
+download time     7.8 min (468 s)
+RESTORE RATE      21.4 objects/sec
+  -> 4,054,466 objects = 52.7 hours for a full restore
+
+checksum compare  PASS   0 differences, 10,000 matching files
+xz decompress     25/25 sampled files clean
+OVERALL           PASS</code></pre>
+<p>So the whole loop is proven: Drive &rarr; droplet &rarr; B2 &rarr; a machine with no prior copy,
+bit-identical on every object.</p>
+<table>
+<tr><th>leg</th><th class="n">rate</th><th class="n">full corpus</th></tr>
+<tr><td>upload, corpus box &rarr; B2</td><td class="n">25.6 obj/s</td><td class="n">43.9 h</td></tr>
+<tr><td>restore, B2 &rarr; fresh box</td><td class="n">21.4 obj/s</td><td class="n">52.7 h</td></tr>
+<tr><td>upload, droplet via Drive</td><td class="n">3.3 obj/s</td><td class="n">14.0 days</td></tr>
+</table>
+<p><b>Verification is not free either.</b> <code>rclone check --checksum</code> over the same
+10,000 objects took 6.5 minutes on its own (06:39:34&rarr;06:46:08), so checksumming the full
+corpus is another ~44 hours on top of a restore.</p>
+
+<h3>What the de-risk test did NOT cover</h3>
+<ul>
+<li><b>Symlink round-trip: untested.</b> The report says <code>symlinks 0 found</code> because
+all 212 live at <i>method-dir</i> level and the payload is a directory <i>inside</i> one method
+dir. So <code>.rclonelink</code> &rarr; real relative symlink has still never been exercised
+end to end. It matters: 211 of them point at
+<code>results-with-detailed-info</code>, which is on Drive nowhere.</li>
+<li><b>Unpickling: skipped by design.</b> <code>0/25</code>, because a bare verify box has no
+torch. Full lzma decompression passed on all 25, and xz carries a CRC over the stream, so
+corruption would have shown.</li>
+<li><b>Multi-file sample dirs:</b> this payload is 1 file per dir, so the 2.6% case the gap
+planner knowingly misses was not exercised.</li>
+</ul>
+
 <h3>Insights worth keeping</h3>
 <ul>
 <li><b>Object count, not byte count, sets the cost of everything here.</b> 88.7% of objects carry
