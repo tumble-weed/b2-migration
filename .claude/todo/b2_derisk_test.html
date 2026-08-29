@@ -788,6 +788,40 @@ B2     {"sha1":"528961baa808eb89dfa1f5f85a72972d5c9faac9"}</code></pre>
 that is old Drive behaviour. Checked against the user's working
 <code>aniketsinghresearch-gdrive:</code> remote, not the <code>gd:</code> env remote.</p>
 
+<h3>B2 exposes md5 too &mdash; through its S3 door</h3>
+<p>B2 serves the same bucket through two APIs, and each surfaces a different stored fingerprint.
+Nothing is converted or duplicated.</p>
+<table>
+<tr><th>door</th><th>rclone backend</th><th>hash</th><th>ModTime</th></tr>
+<tr><td>B2 native</td><td><code>type = b2</code></td><td>sha1</td>
+    <td>rclone's stored mtime metadata</td></tr>
+<tr><td>S3-compatible</td><td><code>type = s3</code>, endpoint
+    <code>s3.us-east-005.backblazeb2.com</code></td><td>md5 (the ETag)</td>
+    <td><b>the S3 upload time</b>, not the original</td></tr>
+</table>
+<pre><code>same object, three views:
+  gd:    {"md5":"e53e63a026ea44ec96a0bb6fc8d76d04", "sha1":"528961ba...", "sha256":"..."}
+  b2s3:  {"md5":"e53e63a026ea44ec96a0bb6fc8d76d04"}
+  b2:    {"sha1":"528961baa808eb89dfa1f5f85a72972d5c9faac9"}</code></pre>
+<p><b>This matters because the dedup classifier is md5 end to end</b> &mdash;
+<code>md5_augment.py</code> shells out to <code>rclone md5sum</code> per remote and
+<code>local_checksums.py</code> sets <code>ALGO = "md5"</code>. Against the native
+<code>b2</code> backend that returns nothing. Against an <code>s3</code>-flavoured remote it
+works unchanged. <b>So the md5&rarr;sha1 rewrite Claude first said was required is not needed.</b></p>
+<p><b>Verified 2026-08-29</b>, 200 real objects, no bytes moved:</p>
+<pre><code>rclone check aniketsinghresearch-gdrive:vast-112/results-torchray/cifar-10-gradient-vgg16 \
+             b2s3:aniketsinghresearch/results-torchray/cifar-10-gradient-vgg16 \
+             --checksum --files-from &lt;200 paths&gt;
+
+  0 differences found
+  200 matching files
+  66 s   ->  3.0 objects/sec  (Drive-bound, matches the 3.3 obj/s droplet figure)</code></pre>
+<p>Two edges to remember: the S3 view reports the <b>upload</b> time as ModTime, so md5 and
+mtime must come from different views &mdash; relevant because the diff's
+<code>newer = A | B</code> axis is decided by mtime. And ETag equals md5 only for
+<b>single-part</b> uploads; the corpus tops out at 103 MB against a 96 MiB chunk size, so a
+handful of objects may be multipart and show a compound ETag instead.</p>
+
 <h3>What it costs, and what it does not</h3>
 <ul>
 <li><b>The cost is enumerating b-on-drive</b>, ~3.29M objects at one Drive query per directory
@@ -825,6 +859,16 @@ files unarchived. A sample of 800 June only-in-B paths found <b>13% absent from 
 and <b>33 whole top dirs</b> (232,880 files, 4.21 GB &mdash; mnist / cifar-100 resnet8 work) exist
 in neither a-on-drive nor local. Neither the corpus box nor <code>--preset results</code> can
 supply those. They have to come from b-on-drive before that copy is retired.</p>
+
+<h3>Correction: <code>move</code> never destroys anything</h3>
+<p>Claude warned that a reconciliation run could trash unarchived only-in-B files. <b>Wrong.</b>
+<code>_move_group</code> in <span class="fileref">dedup_drive/apply.py</span> only issues
+<code>rclone copy B &rarr; A</code> and returns; it never stages or trashes. That is exactly what
+the July log showed &mdash; 1,162,658 copied, b-on-drive untouched.</p>
+<p>Trashing is the separate <code>delete</code> action, and even that stages into a folder
+<i>inside</i> B first, then empties to Google Drive trash (30-day recoverable), behind a confirm
+prompt and a <code>--restore</code> path. So the hazard was invented; there is nothing
+time-sensitive to guard here.</p>
 
 <h3>Risk accepted</h3>
 <p><span class="tag decided">2026-08-29</span> Drive does not guarantee sha1 for every object;
