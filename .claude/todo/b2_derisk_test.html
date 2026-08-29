@@ -759,5 +759,77 @@ box takes the directories Drive provably does not have:
 <code>results-torchray/cifar-10-gradient-vgg16</code> and
 <code>results-torchray/cifar-10-guided_backprop-vgg16</code>, ~86 MB, 20,000 objects.</p>
 
+<h2>12 &nbsp;Reconciling the duplicate Drive roots against B2</h2>
+<p class="sub">Added 2026-08-29. Companion plan:
+<span class="fileref">/root/.claude/todo/reconcile_duplicate_drive_results_plan.html</span>.</p>
+
+<h3>The two roots</h3>
+<table>
+<tr><th>label</th><th>path</th><th>role</th></tr>
+<tr><td><b>a-on-drive</b> (canon)</td><td><code>gd:vast-112/results-torchray</code></td>
+    <td>the new folder; live target of <code>upload_bigfiles_other_</code></td></tr>
+<tr><td><b>b-on-drive</b> (orphan)</td><td><code>gd:results-torchray</code></td>
+    <td>the old duplicate, uploads 2024-01 &rarr; 2025-12</td></tr>
+</table>
+<p><b>b-on-drive is not a subset.</b> The 2026-06-14 diff found 2,327,038 files only in B
+(217 GB) against 220,257 only in A. Claude earlier described the bare path as &quot;an older
+partial copy&quot; &mdash; that was wrong.</p>
+
+<h3>The design: compare a-on-b2 against b-on-drive</h3>
+<p>User's proposal, and it works. Upload only <b>a-on-drive</b> to B2, then run the dedup
+comparison between <b>a-on-b2</b> and <b>b-on-drive</b>.</p>
+<p><b>Verified 2026-08-29: Drive and B2 share sha1</b>, so <code>--checksum</code> compares
+stored hashes with no bytes moved. Same file, both sides:</p>
+<pre><code>Drive  {"md5":"e53e63a0...",
+        "sha1":"528961baa808eb89dfa1f5f85a72972d5c9faac9",
+        "sha256":"50a9cea4..."}
+B2     {"sha1":"528961baa808eb89dfa1f5f85a72972d5c9faac9"}</code></pre>
+<p class="mut">Claude first asserted Drive was md5-only, which would have broken this. Wrong &mdash;
+that is old Drive behaviour. Checked against the user's working
+<code>aniketsinghresearch-gdrive:</code> remote, not the <code>gd:</code> env remote.</p>
+
+<h3>What it costs, and what it does not</h3>
+<ul>
+<li><b>The cost is enumerating b-on-drive</b>, ~3.29M objects at one Drive query per directory
+&mdash; days. Identical whether one file differs or a million.</li>
+<li><b>Not</b> the checksums: both sides report stored hashes, nothing is downloaded.</li>
+<li>Files already present in both resolve to no-ops. That is the price paid to avoid
+regenerating the diff.</li>
+</ul>
+
+<h3>The June diff is half-enacted &mdash; do not reuse it</h3>
+<pre><code>apply-20260712-090710.log
+  group 'b_only_matches_disk'
+  rclone copy gd:results-torchray gd:vast-112/results-torchray --files-from &lt;list&gt;
+  1,162,658 files, 189.025 GiB, finished 2026-08-14 02:12</code></pre>
+<p><b><code>copy</code>, not move</b> &mdash; b-on-drive still holds all 2,327,038; a-on-drive
+gained 1,162,658 of them. So the <i>diff result</i> shrinks to ~1,164,380 only-in-B, while
+b-on-drive is unchanged. Apply logs span 2026-06-20 to 2026-08-09, so regenerate rather than
+subtract.</p>
+
+<h3>Rules for enacting</h3>
+<table>
+<tr><th>rule</th><th>why</th></tr>
+<tr><td><code>--ignore-existing</code> on every fetch from b-on-drive</td>
+    <td>plain <code>rclone copy</code> transfers whenever size or mtime <i>differ</i>, in either
+    direction, so an older B file can overwrite a newer A file. There is no newest-wins default.
+    <code>--ignore-existing</code> only adds; it can never modify an existing object. Right
+    policy here anyway: all 13,742 size-differs were newer on A, none on B.</td></tr>
+<tr><td>regenerate the diff after a-on-drive lands in B2</td>
+    <td>a-on-drive is a live upload target and keeps changing</td></tr>
+</table>
+
+<h3>Consequence for the migration scope</h3>
+<p><span class="tag open">OPEN</span> Archiving only <b>a-on-drive</b> leaves ~1.16M only-in-B
+files unarchived. A sample of 800 June only-in-B paths found <b>13% absent from local disk</b>,
+and <b>33 whole top dirs</b> (232,880 files, 4.21 GB &mdash; mnist / cifar-100 resnet8 work) exist
+in neither a-on-drive nor local. Neither the corpus box nor <code>--preset results</code> can
+supply those. They have to come from b-on-drive before that copy is retired.</p>
+
+<h3>Risk accepted</h3>
+<p><span class="tag decided">2026-08-29</span> Drive does not guarantee sha1 for every object;
+a file carrying md5 only would silently fall back to size comparison. Sampling to measure sha1
+coverage was <b>declined</b> &mdash; the risk is accepted as-is.</p>
+
 </body>
 </html>
