@@ -63,6 +63,16 @@ printf '[source] %s -> b2:%s/%s\n' "$SRC" "$B2_BUCKET" "$name" >&2
 # with a .done marker so a killed run resumes. Use it to pick work the other
 # leg provably cannot duplicate -- e.g. manifests/local_only_dirs.txt, the dirs
 # Google Drive does not have at all.
+# --reverse without --dirs-from: list this box's own top-level dirs and walk them
+# backwards. Each leg then covers ITS OWN source in full -- the droplet lists
+# Drive, this box lists disk -- so neither is limited by the other's inventory,
+# while the opposing order still keeps them from working the same dir at once.
+if [ -n "$REVERSE" ] && [ -z "$DIRS_FROM" ]; then
+    DIRS_FROM="$(mktemp)"
+    find "$SRC" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort > "$DIRS_FROM"
+    printf '[source] self-listed %s local dirs\n' "$(wc -l < "$DIRS_FROM")" >&2
+fi
+
 if [ -n "$DIRS_FROM" ]; then
     [ -s "$DIRS_FROM" ] || { echo "--dirs-from missing or empty: $DIRS_FROM" >&2; exit 2; }
     if [ -n "$REVERSE" ]; then

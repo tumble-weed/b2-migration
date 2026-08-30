@@ -156,7 +156,11 @@ if [ -n "$DIRS_FROM" ]; then
     fi
 else
     log "listing dirs under gd:$SRC (slow on Drive -- not a hang)"
-    mapfile -t DIRS < <(rclone lsf --dirs-only --format p "gd:$SRC" | sed 's:/$::')
+    if [ -n "$REVERSE" ]; then
+        mapfile -t DIRS < <(rclone lsf --dirs-only --format p "gd:$SRC" | sed 's:/$::' | sort -r)
+    else
+        mapfile -t DIRS < <(rclone lsf --dirs-only --format p "gd:$SRC" | sed 's:/$::' | sort)
+    fi
 fi
 log "${#DIRS[@]} dirs to process, transfers=$TRANSFERS"
 

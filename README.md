@@ -255,8 +255,26 @@ Instead both legs walk the **same** 613-dir list from opposite ends:
 ```
 
 They meet wherever their speeds put them — the fast leg naturally covers ~90%,
-with no coordination, no manifest, and no partition to compute. Overlap is one
-directory at the meeting point.
+with no coordination and no partition to compute. Overlap is one directory at
+the meeting point.
+
+**Better: drop `--dirs-from` and let each leg list its own source.** The
+committed `manifests/all_dirs.txt` was generated from *local disk*, so handing
+it to the droplet would make the droplet skip anything that exists only on
+Drive. With `--reverse` alone, the droplet lists Drive and the corpus box lists
+disk — each covers its own inventory in full, and the opposing order still keeps
+them off the same directory:
+
+```bash
+# droplet, Drive's own listing, A -> Z
+./bin/jump-gdrive-to-b2.sh --preset results \
+    --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
+
+# corpus box, its own listing, Z -> A
+./bin/source-local-to-b2.sh \
+    --src /data/bigfiles/other/results-torchray \
+    --reverse --transfers 64
+```
 
 Safe because there is **no locking anywhere**, and none is needed: B2 object PUTs
 are atomic and both legs write identical bytes. A duplicated object just leaves a
