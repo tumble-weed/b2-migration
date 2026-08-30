@@ -208,8 +208,12 @@ If the checksum step reports "N files missing" locally, an upload is still in
 flight — B2 has more objects than were downloaded. Re-run once leg 1 prints
 `[jump] done`.
 
-Leg 1 is per-directory and resumable — a `.done` marker per directory in
-`logs/jump/`, so a killed run picks up where it stopped.
+Leg 1 is per-directory. Resume markers are **opt-in** (`--use-markers`), not the
+default: both `a-on-drive` and the local corpus keep growing as experiments run,
+so marking a directory "done" would permanently skip files added to it later.
+Without the flag every run re-checks every directory and rclone skips whatever
+B2 already has. Leg 2 has no markers at all — re-listing a local filesystem is
+cheap, so there is nothing to trade.
 
 ## Running both legs at once
 

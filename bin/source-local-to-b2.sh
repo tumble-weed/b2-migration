@@ -60,7 +60,7 @@ printf '[source] %s -> b2:%s/%s\n' "$SRC" "$B2_BUCKET" "$name" >&2
 # The corpus symlinks are relative and point at a sibling tree, so both trees
 # must be uploaded and later restored under the same parent.
 # --dirs-from uploads a named subset of top-level dirs, one rclone call each
-# with a .done marker so a killed run resumes. Use it to pick work the other
+# one rclone call each. Use it to pick work the other
 # leg provably cannot duplicate -- e.g. manifests/local_only_dirs.txt, the dirs
 # Google Drive does not have at all.
 # --reverse without --dirs-from: list this box's own top-level dirs and walk them
@@ -85,11 +85,10 @@ if [ -n "$DIRS_FROM" ]; then
     for d in "${DIRS[@]}"; do
         [ -n "$d" ] || continue
         [ -d "$SRC/$d" ] || { printf '[source] SKIP (not local): %s\n' "$d" >&2; continue; }
-        marker="$LOGDIR/${name}_${d//\//_}.done"
-        if [ -f "$marker" ]; then
-            printf '[source] SKIP (done): %s\n' "$d" >&2
-            continue
-        fi
+        # No .done markers on this leg. These directories GROW as experiments
+        # run, so marking one "done" would permanently skip files created
+        # later. Every run re-checks every dir; rclone skips what B2 already
+        # has, which is cheap against a local filesystem.
         printf '[source] === %s\n' "$d" >&2
         rclone copy "$SRC/$d" "b2:$B2_BUCKET/$name/$d" \
             $DRY "${FF[@]}" --links -P \
@@ -98,7 +97,6 @@ if [ -n "$DIRS_FROM" ]; then
             --retries 3 --low-level-retries 20 \
             --stats 30s \
             --log-level INFO --log-file "$LOGDIR/${name}_${d//\//_}.log"
-        [ -z "$DRY" ] && touch "$marker"
     done
     printf '[source] done. logs in %s\n' "$LOGDIR" >&2
     exit 0

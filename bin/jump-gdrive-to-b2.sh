@@ -39,6 +39,7 @@ DRY=""
 PER_DIR=""
 DIRS_FROM=""
 REVERSE=""
+USE_MARKERS=""
 TRANSFERS=16
 CHECKERS=8
 TPSLIMIT=12
@@ -62,6 +63,7 @@ while [ $# -gt 0 ]; do
         --per-dir)    PER_DIR="yes" ;;
         --dirs-from)  DIRS_FROM="$2"; shift ;;
         --reverse)    REVERSE="yes" ;;
+        --use-markers) USE_MARKERS="yes" ;;
         --transfers)  TRANSFERS="$2"; shift ;;
         --checkers)   CHECKERS="$2"; shift ;;
         --tpslimit)   TPSLIMIT="$2"; shift ;;
@@ -178,26 +180,30 @@ log "${#DIRS[@]} dirs to process, transfers=$TRANSFERS"
 
 for d in "${DIRS[@]}"; do
     [ -n "$d" ] || continue
+    # OFF by default. a-on-drive still receives uploads, so a directory marked
+    # "done" would permanently skip files added to it later. --use-markers is
+    # for a one-shot bulk pass where re-listing Drive dominates the cost and
+    # you are accepting that trade knowingly.
     marker="$LOGDIR/$(echo "$DST/$d" | tr / _).done"
-    if [ -f "$marker" ]; then
-        log "SKIP (already done): $d"
+    if [ -n "$USE_MARKERS" ] && [ -f "$marker" ]; then
+        log "SKIP (marker present): $d"
         continue
     fi
     log "=== $d"
     rclone copy "gd:$SRC/$d" "$DEST_BASE/$d" $DRY "${RCLONE_ARGS[@]}" \
         --log-level INFO --log-file "$LOGDIR/$(echo "$DST/$d" | tr / _).log"
-    [ -z "$DRY" ] && touch "$marker"
+    [ -z "$DRY" ] && [ -n "$USE_MARKERS" ] && touch "$marker"
 done
 
 # The loop above only walks directories, so files sitting directly at the source
 # root would be silently skipped -- vast-112/instance_info.sh is one.
 loose_marker="$LOGDIR/$(echo "${DST:-root}" | tr / _)_LOOSEFILES.done"
-if [ ! -f "$loose_marker" ]; then
+if [ -z "$USE_MARKERS" ] || [ ! -f "$loose_marker" ]; then
     log "=== loose files at gd:$SRC (max-depth 1)"
     rclone copy "gd:$SRC" "$DEST_BASE" $DRY "${RCLONE_ARGS[@]}" \
         --max-depth 1 \
         --log-level INFO --log-file "$LOGDIR/$(echo "${DST:-root}" | tr / _)_loose.log"
-    [ -z "$DRY" ] && touch "$loose_marker"
+    [ -z "$DRY" ] && [ -n "$USE_MARKERS" ] && touch "$loose_marker"
 fi
 
 log "done. logs in $LOGDIR"
