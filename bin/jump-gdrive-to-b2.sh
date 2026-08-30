@@ -45,9 +45,15 @@ PER_DIR=""
 DIRS_FROM=""
 REVERSE=""
 USE_MARKERS=""
-TRANSFERS=16
-CHECKERS=8
+TRANSFERS=8
+CHECKERS=4
 TPSLIMIT=12
+# --max-backlog caps how many objects rclone queues between the lister and the
+# transferrers. THIS is the memory knob: the OOM was ~500 MB of queued object
+# metadata, not the 128 MiB of transfer buffers, so lowering --transfers alone
+# would not have helped. Default 10000; 500 keeps the queue small.
+BACKLOG=500
+BUFSIZE=1M
 # rclone's Drive backend has its OWN pacer, default 100ms between API calls =
 # a hard 10 requests/sec ceiling regardless of --tpslimit. On a workload that
 # is nothing but API calls, that default is the dominant cost.
@@ -71,6 +77,8 @@ while [ $# -gt 0 ]; do
         --use-markers) USE_MARKERS="yes" ;;
         --transfers)  TRANSFERS="$2"; shift ;;
         --checkers)   CHECKERS="$2"; shift ;;
+        --max-backlog) BACKLOG="$2"; shift ;;
+        --buffer-size) BUFSIZE="$2"; shift ;;
         --tpslimit)   TPSLIMIT="$2"; shift ;;
         --pacer)      PACER="$2"; shift ;;
         -h|--help)    usage ;;
@@ -138,7 +146,8 @@ RCLONE_ARGS=(
     --links
     -P
     --transfers "$TRANSFERS" --checkers "$CHECKERS"
-    --buffer-size 4M
+    --buffer-size "$BUFSIZE"
+    --max-backlog "$BACKLOG"
     --tpslimit "$TPSLIMIT" --tpslimit-burst "$((TPSLIMIT * 2))"
     --drive-pacer-min-sleep "$PACER"
     --retries 3 --low-level-retries 20
@@ -151,6 +160,7 @@ DEST_BASE="b2:$B2_BUCKET${DST:+/$DST}"
 log "destination $DEST_BASE"
 log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo 'single copy')"
 log "tuning      transfers=$TRANSFERS checkers=$CHECKERS tpslimit=$TPSLIMIT pacer=$PACER"
+log "memory      buffer-size=$BUFSIZE max-backlog=$BACKLOG"
 [ -n "$DRY" ] && log "DRY RUN -- nothing will be written"
 
 if [ -z "$PER_DIR" ]; then

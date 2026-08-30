@@ -164,6 +164,33 @@ echoed at startup so a logged run records what produced its timing:
 Raising them risks Drive 403 rate-limit responses; rclone retries those, so the
 failure mode is slowdown rather than data loss.
 
+### Memory: the droplet has 1 GiB
+
+`--preset all` was OOM-killed walking the corpus:
+
+```
+Out of memory: Killed process 1105479 (rclone)
+total-vm:2331600kB  anon-rss:651468kB
+```
+
+651 MB resident, and **only 128 MiB of that was transfer buffers** — the rest is
+object metadata queued between the lister and the transferrers. So lowering
+`--transfers` alone would not have helped. The knob that bounds it is
+`--max-backlog`, which caps that queue.
+
+Defaults are now sized for a 1 GiB box:
+
+| flag | default | why |
+|---|---|---|
+| `--max-backlog` | 500 | rclone's default is 10000; this is the memory cap |
+| `--buffer-size` | 1M | 8 MiB of buffers instead of 128 |
+| `--transfers` | 8 | Drive's rate limit sets the pace, not concurrency |
+| `--checkers` | 4 | fewer concurrent directory listings held |
+
+Lowering these costs nothing on the jump host: it runs at ~3 objects/sec because
+of Drive's per-user quota, so 8 transfers is already more than the quota can
+feed. `bootstrap.sh` also adds a 2G swapfile as a cushion.
+
 ## Google Drive is read-only
 
 Two independent guards:
