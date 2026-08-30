@@ -26,6 +26,20 @@ if [ "$(id -u)" -ne 0 ]; then
     SUDO="sudo"
 fi
 
+# --- swap -------------------------------------------------------------------
+# The $6 droplet has 1 GiB and no swap. rclone walking a large tree was OOM-killed
+# there at 651 MB RSS:
+#   Out of memory: Killed process ... (rclone) anon-rss:651468kB
+# Swap turns that from a hard kill into slow progress.
+if [ "$(swapon --show --noheadings 2>/dev/null | wc -l)" -eq 0 ] && [ ! -e /swapfile ]; then
+    log "no swap -- creating a 2G swapfile"
+    $SUDO fallocate -l 2G /swapfile 2>/dev/null || $SUDO dd if=/dev/zero of=/swapfile bs=1M count=2048
+    $SUDO chmod 600 /swapfile
+    $SUDO mkswap /swapfile >/dev/null
+    $SUDO swapon /swapfile
+fi
+log "swap: $(free -h | awk '/Swap:/{print $2" total, "$3" used"}')"
+
 # --- rclone -----------------------------------------------------------------
 if ! command -v rclone >/dev/null 2>&1; then
     log "installing rclone"
