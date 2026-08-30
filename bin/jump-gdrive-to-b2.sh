@@ -21,8 +21,13 @@
 #   ./bin/jump-gdrive-to-b2.sh --preset derisk
 #   ./bin/jump-gdrive-to-b2.sh --preset derisk-live \
 #       --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
+#   ./bin/jump-gdrive-to-b2.sh --preset all --pacer 10ms --tpslimit 100 --transfers 32 --checkers 32
 #   ./bin/jump-gdrive-to-b2.sh --preset results
 #   ./bin/jump-gdrive-to-b2.sh --preset metrics
+#
+# presets: all | results | metrics | derisk | derisk-live
+#   all = every dir under vast-112 plus loose files (what the vast-utils
+#         aliases upload); results/metrics are only 2 of those 9.
 #   ./bin/jump-gdrive-to-b2.sh --src vast-112/results-torchray --dst results-torchray --per-dir
 set -euo pipefail
 
