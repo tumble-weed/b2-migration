@@ -105,10 +105,30 @@ Presets carry those paths and drop the `vast-112/` prefix, so B2 mirrors the
 
 | preset | Drive | B2 |
 |---|---|---|
+| `all` | `vast-112` (everything) | bucket root |
 | `derisk` | `.../cifar-10-grad_cam-vgg16` | `_derisk/results-torchray/cifar-10-grad_cam-vgg16` |
 | `derisk-live` | `.../cifar-10-gradient-vgg16` | `results-torchray/cifar-10-gradient-vgg16` |
 | `results` | `vast-112/results-torchray` | `results-torchray` |
 | `metrics` | `vast-112/metrics-torchray` | `metrics-torchray` |
+
+`all` is the one that matches what the `vast-utils` aliases actually upload.
+`results` and `metrics` are only 2 of the 9 directories under `vast-112`:
+
+```
+condaenvs/          <- gpnnenv2, a whole conda env
+dataset/
+evaluate-saliency-4/
+metrics-torchray/
+myhelp/
+results-torchray/
+todo/
+todo2/
+vast-utils/
+instance_info.sh    <- loose file at that level
+```
+
+The `vast-112/` prefix is stripped on the B2 side either way, so the archive
+mirrors the local layout and matches what leg 2 writes.
 
 `derisk` writes under `_derisk/` so test data can be dropped wholesale.
 

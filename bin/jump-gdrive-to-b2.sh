@@ -100,7 +100,17 @@ case "$PRESET" in
     metrics)  SRC="vast-112/metrics-torchray"
               DST="metrics-torchray"
               PER_DIR="yes" ;;
-    *) echo "unknown preset: $PRESET (derisk|derisk-live|results|metrics)" >&2; exit 2 ;;
+    all)      # EVERYTHING the vast-utils aliases upload: results-torchray and
+              # metrics-torchray are only 2 of the 9 dirs under vast-112. The
+              # rest -- condaenvs, dataset, evaluate-saliency-4, myhelp, todo,
+              # todo2, vast-utils -- plus the loose instance_info.sh were not
+              # covered by any earlier preset.
+              # The vast-112/ prefix is still stripped on the B2 side, so the
+              # archive mirrors the LOCAL layout and matches what leg 2 writes.
+              SRC="vast-112"
+              DST=""
+              PER_DIR="yes" ;;
+    *) echo "unknown preset: $PRESET (all|results|metrics|derisk|derisk-live)" >&2; exit 2 ;;
 esac
 
 [ -n "$SRC" ] || { echo "ERROR: --src or --preset is required" >&2; usage; }
@@ -109,7 +119,8 @@ case "$SRC" in
         echo "ERROR: refusing source '$SRC' -- that is the whole Drive root" >&2
         exit 2 ;;
 esac
-DST="${DST:-$SRC}"
+# `all` deliberately sets DST="" (bucket root), so only an UNSET DST defaults.
+DST="${DST-$SRC}"
 
 mkdir -p "$LOGDIR"
 log() { printf '[jump] %s\n' "$*" >&2; }
@@ -129,7 +140,8 @@ RCLONE_ARGS=(
 )
 
 log "source      gd:$SRC"
-log "destination b2:$B2_BUCKET/$DST"
+DEST_BASE="b2:$B2_BUCKET${DST:+/$DST}"
+log "destination $DEST_BASE"
 log "mode        $([ -n "$PER_DIR" ] && echo 'per-directory (resumable)' || echo 'single copy')"
 log "tuning      transfers=$TRANSFERS checkers=$CHECKERS tpslimit=$TPSLIMIT pacer=$PACER"
 [ -n "$DRY" ] && log "DRY RUN -- nothing will be written"
@@ -139,7 +151,7 @@ if [ -z "$PER_DIR" ]; then
     log "log         $single_log"
     log "Drive enumeration is slow. Watch the Checks counter -- that is the"
     log "progress; Transferred stays at 0 B on a --dry-run by definition."
-    rclone copy "gd:$SRC" "b2:$B2_BUCKET/$DST" $DRY "${RCLONE_ARGS[@]}" \
+    rclone copy "gd:$SRC" "$DEST_BASE" $DRY "${RCLONE_ARGS[@]}" \
         --log-level INFO --log-file "$single_log"
     log "done. log: $single_log"
     exit 0
@@ -172,9 +184,20 @@ for d in "${DIRS[@]}"; do
         continue
     fi
     log "=== $d"
-    rclone copy "gd:$SRC/$d" "b2:$B2_BUCKET/$DST/$d" $DRY "${RCLONE_ARGS[@]}" \
+    rclone copy "gd:$SRC/$d" "$DEST_BASE/$d" $DRY "${RCLONE_ARGS[@]}" \
         --log-level INFO --log-file "$LOGDIR/$(echo "$DST/$d" | tr / _).log"
     [ -z "$DRY" ] && touch "$marker"
 done
+
+# The loop above only walks directories, so files sitting directly at the source
+# root would be silently skipped -- vast-112/instance_info.sh is one.
+loose_marker="$LOGDIR/$(echo "${DST:-root}" | tr / _)_LOOSEFILES.done"
+if [ ! -f "$loose_marker" ]; then
+    log "=== loose files at gd:$SRC (max-depth 1)"
+    rclone copy "gd:$SRC" "$DEST_BASE" $DRY "${RCLONE_ARGS[@]}" \
+        --max-depth 1 \
+        --log-level INFO --log-file "$LOGDIR/$(echo "${DST:-root}" | tr / _)_loose.log"
+    [ -z "$DRY" ] && touch "$loose_marker"
+fi
 
 log "done. logs in $LOGDIR"
